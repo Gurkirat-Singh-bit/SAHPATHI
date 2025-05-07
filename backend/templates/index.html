@@ -10,16 +10,20 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Slim sidebar with logo and new chat button -->
+        <!-- Sidebar with logo/college hat button and chat history -->
         <div class="sidebar">
             <div class="sidebar-top">
-                <div class="logo">
+                <div id="logo" class="logo" title="Toggle Sidebar">
                     <i class="fas fa-graduation-cap"></i>
                 </div>
-            </div>
-            <div class="sidebar-middle">
-                <div id="new-chat-button" class="new-chat-btn" title="New Chat">
+                <div id="new-chat-button" class="new-chat-btn sidebar-new-chat" title="New Chat">
                     <i class="fas fa-plus"></i>
+                </div>
+            </div>
+            <div class="sidebar-expanded">
+                <h3>Chat History</h3>
+                <div id="chat-history-list" class="chat-history-list">
+                    <!-- Chat history items will be added here by JavaScript -->
                 </div>
             </div>
         </div>

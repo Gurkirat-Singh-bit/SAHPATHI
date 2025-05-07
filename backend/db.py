@@ -1,34 +1,254 @@
 # Database connection module for SAHPAATHI
 # This file will handle database connections and operations
-
-# For now, this is a simple implementation with in-memory storage
-# In a production environment, you'd use MongoDB or another database
+import pymongo
+from datetime import datetime
+import uuid
 
 class ChatDatabase:
     def __init__(self):
-        self.chat_history = []
+        # Connect to MongoDB - we'll use a database named sahpaathi
+        # Note: This assumes MongoDB is running on the default localhost:27017
+        # In production, you would use environment variables for the connection string
+        try:
+            # Set a server timeout to avoid hanging on connection issues
+            self.client = pymongo.MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=5000)
+            # Test the connection
+            self.client.server_info()
+            self.db = self.client["sahpaathi"]
+            self.chats = self.db["chats"]
+            self.chat_sessions = self.db["chat_sessions"]  # New collection for chat sessions
+            print("MongoDB connection successful")
+            self.use_mongodb = True
+        except Exception as e:
+            print(f"MongoDB connection error: {e}")
+            # Fallback to in-memory if MongoDB connection fails
+            self.client = None
+            self.chat_history = []
+            self.current_session_id = str(uuid.uuid4())
+            self.sessions = {}
+            self.use_mongodb = False
     
-    def add_message(self, role, content):
+    def create_new_session(self, name=None):
+        """Create a new chat session and return its ID"""
+        session_id = str(uuid.uuid4())
+        session = {
+            'session_id': session_id,
+            'name': name or "New Chat",
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        if self.use_mongodb:
+            try:
+                self.chat_sessions.insert_one(session)
+                print(f"Created new chat session: {session_id}")
+                return session_id
+            except Exception as e:
+                print(f"Error creating chat session: {e}")
+                # Fall back to in-memory
+                self.use_mongodb = False
+                self.sessions[session_id] = session
+                return session_id
+        else:
+            # In-memory implementation
+            self.sessions[session_id] = session
+            return session_id
+    
+    def get_all_sessions(self):
+        """Get all chat sessions"""
+        if self.use_mongodb:
+            try:
+                # Get all sessions sorted by update time (newest first)
+                cursor = self.chat_sessions.find({}).sort('updated_at', -1)
+                sessions = list(cursor)
+                # Convert ObjectId to string for JSON serialization
+                for session in sessions:
+                    session['_id'] = str(session['_id'])
+                    # Format timestamps as strings
+                    session['created_at'] = session['created_at'].isoformat()
+                    session['updated_at'] = session['updated_at'].isoformat()
+                return sessions
+            except Exception as e:
+                print(f"Error getting chat sessions: {e}")
+                self.use_mongodb = False
+                return list(self.sessions.values())
+        else:
+            return list(self.sessions.values())
+    
+    def update_session_name(self, session_id, name):
+        """Update the name of a chat session"""
+        if self.use_mongodb:
+            try:
+                self.chat_sessions.update_one(
+                    {'session_id': session_id},
+                    {'$set': {'name': name, 'updated_at': datetime.now()}}
+                )
+                return True
+            except Exception as e:
+                print(f"Error updating session name: {e}")
+                return False
+        else:
+            if session_id in self.sessions:
+                self.sessions[session_id]['name'] = name
+                self.sessions[session_id]['updated_at'] = datetime.now()
+                return True
+            return False
+    
+    def add_message(self, session_id, role, content):
         """
-        Add a new message to the chat history
+        Add a new message to a specific chat session
         
         Args:
+            session_id (str): The session ID
             role (str): 'user' or 'assistant'
             content (str): The message content
         """
-        self.chat_history.append({
+        message = {
+            'session_id': session_id,
             'role': role,
-            'content': content
-        })
-        return True
+            'content': content,
+            'timestamp': datetime.now()
+        }
+        
+        # Update the session's updated_at timestamp
+        if self.use_mongodb:
+            try:
+                # Insert the message
+                self.chats.insert_one(message)
+                
+                # Update the session's last update time
+                self.chat_sessions.update_one(
+                    {'session_id': session_id},
+                    {'$set': {'updated_at': datetime.now()}}
+                )
+                
+                print(f"Message added to MongoDB session {session_id}: {role}")
+                return True
+            except Exception as e:
+                print(f"Error adding message to MongoDB: {e}")
+                # Fall back to in-memory if MongoDB operation fails
+                self.use_mongodb = False
+                if session_id not in self.sessions:
+                    self.sessions[session_id] = {
+                        'session_id': session_id,
+                        'name': "New Chat",
+                        'created_at': datetime.now(),
+                        'updated_at': datetime.now()
+                    }
+                if session_id not in self.chat_history:
+                    self.chat_history[session_id] = []
+                self.chat_history[session_id].append(message)
+                return True
+        else:
+            # In-memory implementation
+            if session_id not in self.sessions:
+                self.sessions[session_id] = {
+                    'session_id': session_id,
+                    'name': "New Chat",
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                }
+            if not hasattr(self, 'chat_history') or not isinstance(self.chat_history, dict):
+                self.chat_history = {}
+            if session_id not in self.chat_history:
+                self.chat_history[session_id] = []
+            
+            self.chat_history[session_id].append(message)
+            self.sessions[session_id]['updated_at'] = datetime.now()
+            
+            print(f"Message added to in-memory storage for session {session_id}: {role}")    
+            return True
     
-    def get_chat_history(self):
-        """Get all chat messages"""
-        return self.chat_history
+    def get_chat_history(self, session_id=None):
+        """Get chat messages for a specific session or all messages if no session specified"""
+        if self.use_mongodb:
+            try:
+                # MongoDB implementation
+                # Get messages sorted by timestamp
+                query = {'session_id': session_id} if session_id else {}
+                cursor = self.chats.find(query, {'_id': 0, 'session_id': 0}).sort('timestamp', 1)
+                history = list(cursor)
+                # Remove timestamps from the output
+                for msg in history:
+                    if 'timestamp' in msg:
+                        del msg['timestamp']
+                print(f"Retrieved {len(history)} messages from MongoDB" + 
+                      (f" for session {session_id}" if session_id else ""))
+                return history
+            except Exception as e:
+                print(f"Error getting chat history from MongoDB: {e}")
+                # Fall back to in-memory if MongoDB operation fails
+                self.use_mongodb = False
+                return self._get_in_memory_history(session_id)
+        else:
+            return self._get_in_memory_history(session_id)
     
-    def clear_history(self):
-        """Clear the chat history"""
-        self.chat_history = []
+    def _get_in_memory_history(self, session_id=None):
+        """Helper method to get history from in-memory storage"""
+        if not hasattr(self, 'chat_history') or not isinstance(self.chat_history, dict):
+            return []
+        
+        # If session_id provided, return just that session's messages
+        if session_id:
+            if session_id not in self.chat_history:
+                return []
+            # Remove timestamps and session_id for consistency with the MongoDB output
+            cleaned_history = []
+            for msg in self.chat_history[session_id]:
+                cleaned_msg = {'role': msg['role'], 'content': msg['content']}
+                cleaned_history.append(cleaned_msg)
+            print(f"Retrieved {len(cleaned_history)} messages from in-memory storage for session {session_id}")
+            return cleaned_history
+        
+        # If no session_id, return all messages
+        all_messages = []
+        for session_messages in self.chat_history.values():
+            for msg in session_messages:
+                cleaned_msg = {'role': msg['role'], 'content': msg['content']}
+                all_messages.append(cleaned_msg)
+        
+        print(f"Retrieved {len(all_messages)} total messages from in-memory storage")
+        return all_messages
+    
+    def clear_history(self, session_id=None):
+        """Clear chat history for a specific session or all if no session specified"""
+        if self.use_mongodb:
+            try:
+                if session_id:
+                    # Delete messages for this session
+                    result = self.chats.delete_many({'session_id': session_id})
+                    # Delete the session itself
+                    self.chat_sessions.delete_one({'session_id': session_id})
+                    print(f"Cleared session {session_id}: {result.deleted_count} messages")
+                else:
+                    # Delete all messages
+                    result = self.chats.delete_many({})
+                    # Delete all sessions
+                    self.chat_sessions.delete_many({})
+                    print(f"Cleared all chat history: {result.deleted_count} messages")
+                return True
+            except Exception as e:
+                print(f"Error clearing chat history from MongoDB: {e}")
+                # Fall back to in-memory if MongoDB operation fails
+                self.use_mongodb = False
+                self._clear_in_memory_history(session_id)
+                return True
+        else:
+            return self._clear_in_memory_history(session_id)
+    
+    def _clear_in_memory_history(self, session_id=None):
+        """Helper method to clear history from in-memory storage"""
+        if session_id:
+            if hasattr(self, 'chat_history') and isinstance(self.chat_history, dict):
+                if session_id in self.chat_history:
+                    del self.chat_history[session_id]
+            if hasattr(self, 'sessions') and session_id in self.sessions:
+                del self.sessions[session_id]
+            print(f"Cleared in-memory chat history for session {session_id}")
+        else:
+            self.chat_history = {}
+            self.sessions = {}
+            print("Cleared all in-memory chat history")
         return True
 
 # Create a singleton instance
