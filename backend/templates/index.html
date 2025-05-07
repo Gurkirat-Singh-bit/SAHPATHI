@@ -58,6 +58,74 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Right sidebar with tools -->
+        <div class="tools-sidebar">
+            <div class="sidebar-top">
+                <div id="tools-toggle" class="logo" title="Toggle Tools Sidebar">
+                    <i class="fas fa-tools"></i>
+                </div>
+            </div>
+            <div class="sidebar-expanded">
+                <h3>Tools</h3>
+                <div class="tools-list">
+                    <div id="pdf-converter" class="tool-item" title="Convert Markdown to PDF">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>MD to PDF</span>
+                    </div>
+                    <!-- More tools can be added here in the future -->
+                </div>
+                
+                <!-- PDF Converter Panel (hidden by default) -->
+                <div id="pdf-converter-panel" class="tool-panel hidden">
+                    <h4>Convert to PDF</h4>
+                    
+                    <!-- Tab navigation -->
+                    <div class="tab-navigation">
+                        <button id="file-upload-tab" class="tab-btn active">Upload File</button>
+                        <button id="text-input-tab" class="tab-btn">Enter Text</button>
+                    </div>
+                    
+                    <!-- File upload tab content -->
+                    <div id="file-upload-content" class="tab-content">
+                        <div class="file-upload">
+                            <label for="md-file-input" class="file-upload-label">
+                                <i class="fas fa-upload"></i>
+                                <span>Choose a .md or .txt file</span>
+                            </label>
+                            <input type="file" id="md-file-input" accept=".md,.txt" class="file-input">
+                        </div>
+                        <div id="selected-file-info" class="selected-file-info hidden">
+                            <p id="selected-filename">No file selected</p>
+                        </div>
+                        <button id="convert-file-to-pdf-btn" class="tool-action-btn" disabled>
+                            <i class="fas fa-file-export"></i>
+                            Convert to PDF
+                        </button>
+                    </div>
+                    
+                    <!-- Text input tab content -->
+                    <div id="text-input-content" class="tab-content hidden">
+                        <div class="text-input-container">
+                            <div class="form-group">
+                                <label for="text-title">Document Title</label>
+                                <input type="text" id="text-title" placeholder="Enter document title" value="Document">
+                            </div>
+                            <div class="form-group">
+                                <label for="direct-text-input">Enter Text</label>
+                                <textarea id="direct-text-input" rows="8" placeholder="Type or paste your text here..."></textarea>
+                            </div>
+                            <button id="convert-text-to-pdf-btn" class="tool-action-btn">
+                                <i class="fas fa-file-export"></i>
+                                Convert to PDF
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="conversion-status" class="conversion-status hidden"></div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script src="/static/script.js"></script>

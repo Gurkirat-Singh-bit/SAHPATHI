@@ -12,10 +12,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const body = document.body;
     const logo = document.querySelector('.logo');
     
+    // Tools sidebar elements
+    const toolsSidebar = document.querySelector('.tools-sidebar');
+    const toolsToggle = document.getElementById('tools-toggle');
+    const pdfConverter = document.getElementById('pdf-converter');
+    const pdfConverterPanel = document.getElementById('pdf-converter-panel');
+    const mdFileInput = document.getElementById('md-file-input');
+    const selectedFileInfo = document.getElementById('selected-file-info');
+    const selectedFilename = document.getElementById('selected-filename');
+    const convertFileToPdfBtn = document.getElementById('convert-file-to-pdf-btn');
+    const convertTextToPdfBtn = document.getElementById('convert-text-to-pdf-btn');
+    const conversionStatus = document.getElementById('conversion-status');
+    
+    // Tab elements
+    const fileUploadTab = document.getElementById('file-upload-tab');
+    const textInputTab = document.getElementById('text-input-tab');
+    const fileUploadContent = document.getElementById('file-upload-content');
+    const textInputContent = document.getElementById('text-input-content');
+    const textTitle = document.getElementById('text-title');
+    const directTextInput = document.getElementById('direct-text-input');
+    
     // Store the current session information
     let currentSessionId = '';
     let firstUserQuestion = '';
     let currentChatName = '';
+    
+    // Store selected file data
+    let selectedFile = null;
 
     // Set initial focus on input
     userInput.focus();
@@ -36,6 +59,17 @@ document.addEventListener('DOMContentLoaded', function() {
     newChatButton.addEventListener('click', startNewChat);
     logo.addEventListener('click', toggleSidebar); // Change logo click to toggle sidebar
 
+    // Tools sidebar event listeners
+    toolsToggle.addEventListener('click', toggleToolsSidebar);
+    pdfConverter.addEventListener('click', showPdfConverterPanel);
+    mdFileInput.addEventListener('change', handleFileSelection);
+    convertFileToPdfBtn.addEventListener('click', convertMdToPdf);
+    convertTextToPdfBtn.addEventListener('click', convertTextToPdf);
+    
+    // Tab navigation listeners
+    fileUploadTab.addEventListener('click', () => switchTab('file'));
+    textInputTab.addEventListener('click', () => switchTab('text'));
+
     // Auto-adjust input height
     userInput.addEventListener('input', adjustInputHeight);
 
@@ -43,6 +77,79 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApplication();
 
     // Functions
+    
+    // Switch between tabs
+    function switchTab(tabName) {
+        if (tabName === 'file') {
+            fileUploadTab.classList.add('active');
+            textInputTab.classList.remove('active');
+            fileUploadContent.classList.remove('hidden');
+            textInputContent.classList.add('hidden');
+        } else {
+            fileUploadTab.classList.remove('active');
+            textInputTab.classList.add('active');
+            fileUploadContent.classList.add('hidden');
+            textInputContent.classList.remove('hidden');
+        }
+        
+        // Clear any previous conversion status
+        conversionStatus.classList.add('hidden');
+    }
+    
+    // Convert text directly to PDF
+    async function convertTextToPdf() {
+        const text = directTextInput.value.trim();
+        const title = textTitle.value.trim() || 'Document';
+        
+        if (!text) {
+            showConversionStatus('error', 'Please enter some text to convert');
+            return;
+        }
+        
+        // Show processing status
+        showConversionStatus('', 'Converting text to PDF...', false);
+        
+        try {
+            // Send request to server
+            const response = await fetch('/api/convert-text-to-pdf', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    text: text,
+                    title: title
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Conversion failed');
+            }
+            
+            // Get the PDF file from response
+            const data = await response.json();
+            
+            if (data.pdf_url) {
+                // Show success message with download link
+                showConversionStatus(
+                    'success', 
+                    `Conversion successful! <a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
+                );
+                
+                // Automatically trigger download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.pdf_url;
+                downloadLink.download = `${title}.pdf`;
+                downloadLink.click();
+            } else {
+                throw new Error('No PDF URL returned');
+            }
+        } catch (error) {
+            console.error('Text to PDF conversion error:', error);
+            showConversionStatus('error', `Conversion failed: ${error.message}`);
+        }
+    }
 
     // Initialize the application - check for existing sessions or create a new one
     async function initializeApplication() {
@@ -128,6 +235,121 @@ document.addEventListener('DOMContentLoaded', function() {
         // Load chat sessions into sidebar if expanded
         if (sidebar.classList.contains('expanded')) {
             loadChatSessionsForSidebar();
+        }
+    }
+    
+    // Toggle tools sidebar expansion
+    function toggleToolsSidebar() {
+        toolsSidebar.classList.toggle('expanded');
+        
+        // Add animation to the tools toggle button
+        toolsToggle.classList.add('animate__animated', 'animate__rubberBand');
+        setTimeout(() => {
+            toolsToggle.classList.remove('animate__animated', 'animate__rubberBand');
+        }, 800);
+        
+        // Hide tool panels when collapsing sidebar
+        if (!toolsSidebar.classList.contains('expanded')) {
+            pdfConverterPanel.classList.add('hidden');
+        }
+    }
+    
+    // Show PDF converter panel
+    function showPdfConverterPanel() {
+        // Hide any other tool panels here (when you add more tools)
+        
+        // Show PDF converter panel
+        pdfConverterPanel.classList.remove('hidden');
+        
+        // Make sure sidebar is expanded
+        if (!toolsSidebar.classList.contains('expanded')) {
+            toggleToolsSidebar();
+        }
+        
+        // Default to file upload tab
+        switchTab('file');
+    }
+    
+    // Handle file selection
+    function handleFileSelection(event) {
+        const file = event.target.files[0];
+        
+        if (file) {
+            selectedFile = file;
+            selectedFileInfo.classList.remove('hidden');
+            selectedFilename.textContent = file.name;
+            convertFileToPdfBtn.disabled = false;
+            
+            console.log("File selected:", file.name);
+        } else {
+            selectedFile = null;
+            selectedFileInfo.classList.add('hidden');
+            convertFileToPdfBtn.disabled = true;
+        }
+    }
+    
+    // Convert Markdown to PDF
+    async function convertMdToPdf() {
+        if (!selectedFile) {
+            showConversionStatus('error', 'No file selected');
+            return;
+        }
+        
+        // Reset status
+        showConversionStatus('', 'Converting file...', false);
+        
+        // Create FormData instance
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        try {
+            // Send request to server
+            const response = await fetch('/api/convert-md-to-pdf', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Conversion failed');
+            }
+            
+            // Get the PDF file from response
+            const data = await response.json();
+            
+            if (data.pdf_url) {
+                // Show success message with download link
+                showConversionStatus(
+                    'success', 
+                    `Conversion successful! <a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
+                );
+                
+                // Automatically trigger download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.pdf_url;
+                downloadLink.download = selectedFile.name.replace('.md', '.pdf').replace('.txt', '.pdf');
+                downloadLink.click();
+            } else {
+                throw new Error('No PDF URL returned');
+            }
+        } catch (error) {
+            console.error('Conversion error:', error);
+            showConversionStatus('error', `Conversion failed: ${error.message}`);
+        }
+    }
+    
+    // Show conversion status message
+    function showConversionStatus(type, message, isHtml = true) {
+        conversionStatus.classList.remove('hidden', 'success', 'error');
+        
+        if (type) {
+            conversionStatus.classList.add(type);
+        }
+        
+        if (isHtml) {
+            conversionStatus.innerHTML = message;
+        } else {
+            conversionStatus.textContent = message;
         }
     }
     
