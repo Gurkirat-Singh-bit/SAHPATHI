@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAHPAATHI - Your AI Study Companion</title>
     <link rel="stylesheet" href="/static/style.css">
-    <!-- Add Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar with New Chat button -->
+        <!-- Slim sidebar with logo and new chat button -->
         <div class="sidebar">
             <div class="sidebar-top">
                 <div class="logo">
@@ -18,14 +18,13 @@
                 </div>
             </div>
             <div class="sidebar-middle">
-                <div id="new-chat-button" class="new-chat-btn">
+                <div id="new-chat-button" class="new-chat-btn" title="New Chat">
                     <i class="fas fa-plus"></i>
-                    <span>New Chat</span>
                 </div>
             </div>
         </div>
 
-        <!-- Main container -->
+        <!-- Main content area -->
         <div class="main-content">
             <div class="header">
                 <h1>SAHPAATHI</h1>
@@ -38,8 +37,8 @@
 
             <div class="chat-container" id="chat-container">
                 <div class="chat-messages" id="chat-messages">
-                    <!-- Welcome message -->
-                    <div class="welcome-message">
+                    <!-- Welcome message with animation -->
+                    <div class="welcome-message animate__animated animate__fadeIn">
                         <h2>Welcome to SAHPAATHI</h2>
                         <p>Ask me anything about your studies!</p>
                     </div>

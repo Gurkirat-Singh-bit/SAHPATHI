@@ -1,194 +1,169 @@
-// SAHPAATHI - Main JavaScript functionality
+// SAHPAATHI - Enhanced JavaScript functionality
 
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendButton = document.getElementById('send-button');
-    const chatContainer = document.getElementById('chat-container');
     const newChatButton = document.getElementById('new-chat-button');
-    const themeToggle = document.querySelector('.theme-toggle');
+    const themeToggle = document.getElementById('theme-toggle');
     const body = document.body;
-    let isFirstMessage = true;
+    const logo = document.querySelector('.logo');
 
-    // Set initial centered layout
-    chatContainer.classList.add('centered-layout');
+    // Set initial focus on input
+    userInput.focus();
 
-    // Initialize theme from localStorage with smoother transition
-    if (localStorage.getItem('theme') === 'dark') {
-        // Add a small delay to prevent flash during page load
-        setTimeout(() => {
-            body.classList.add('dark-theme');
-            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            // Force correct input background after theme is applied
-            updateInputBackground();
-        }, 50);
-    } else {
-        themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-        // Ensure correct initial background
-        updateInputBackground();
-    }
+    // Initialize theme from localStorage
+    initTheme();
 
-    // Enhanced theme toggle functionality with visual feedback
-    themeToggle.addEventListener('click', function() {
-        // Add animation class
-        themeToggle.classList.add('theme-toggle-active');
-        
-        // Toggle theme after slight delay for better visual effect
-        setTimeout(() => {
-            body.classList.toggle('dark-theme');
-            
-            if (body.classList.contains('dark-theme')) {
-                localStorage.setItem('theme', 'dark');
-                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
-            } else {
-                localStorage.setItem('theme', 'light');
-                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-            }
-            
-            // Force correct input background color after theme change
-            updateInputBackground();
-        }, 150);
-        
-        // Remove animation class after animation completes
-        setTimeout(() => {
-            themeToggle.classList.remove('theme-toggle-active');
-        }, 300);
-    });
-    
-    // Improved function for input field background transparency issues
-    function updateInputBackground() {
-        // Get the computed background color from CSS variables
-        let computedStyle = getComputedStyle(document.documentElement);
-        let bgColor = computedStyle.getPropertyValue('--input-bg').trim();
-        
-        // If the background color is still transparent, use a fallback
-        if (bgColor.includes('rgba') && bgColor.split(',')[3].includes('0')) {
-            bgColor = body.classList.contains('dark-theme') ? '#293548' : '#ffffff';
-        }
-        
-        // Force the background color with !important through style attribute
-        userInput.style.backgroundColor = bgColor;
-        userInput.style.setProperty('background-color', bgColor, 'important');
-        
-        // Adjust text color to match the theme
-        let textColor = computedStyle.getPropertyValue('--input-text').trim();
-        userInput.style.color = textColor;
-        
-        // Ensure border color is visible
-        let borderColor = computedStyle.getPropertyValue('--border-color').trim();
-        userInput.style.borderColor = borderColor;
-    }
-    
-    // Update input background on various events
-    userInput.addEventListener('focus', updateInputBackground);
-    userInput.addEventListener('input', updateInputBackground);
-    userInput.addEventListener('blur', updateInputBackground);
-    
-    // Call updateInputBackground on theme change
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', updateInputBackground);
-    
-    // Initialize input background on page load
-    setTimeout(updateInputBackground, 100);
+    // Add pulse animation to the new chat button for attention
+    newChatButton.classList.add('pulse');
+    setTimeout(() => {
+        newChatButton.classList.remove('pulse');
+    }, 2000);
 
-    // Event listeners
-    sendButton.addEventListener('click', function() {
+    // Event Listeners
+    sendButton.addEventListener('click', handleSendMessage);
+    userInput.addEventListener('keypress', handleEnterKey);
+    themeToggle.addEventListener('click', toggleTheme);
+    newChatButton.addEventListener('click', startNewChat);
+    logo.addEventListener('click', redirectToHome);
+
+    // Auto-adjust input height
+    userInput.addEventListener('input', adjustInputHeight);
+
+    // Initialize - fetch chat history if available
+    loadChatHistory();
+
+    // Functions
+
+    // Handle sending message
+    function handleSendMessage() {
         const message = userInput.value.trim();
         if (message) {
             sendMessage(message);
         }
-    });
+    }
 
-    userInput.addEventListener('keypress', function(e) {
+    // Handle Enter key in input
+    function handleEnterKey(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            const message = userInput.value.trim();
-            if (message) {
-                sendMessage(message);
-            }
-        }
-    });
-
-    newChatButton.addEventListener('click', function() {
-        chatMessages.innerHTML = '';
-        chatContainer.classList.remove('bottom-layout');
-        chatContainer.classList.add('centered-layout');
-        document.querySelector('.welcome-message').style.display = 'block';
-        isFirstMessage = true;
-    });
-
-    // Function to change layout from centered to bottom
-    function switchToChatLayout() {
-        if (isFirstMessage) {
-            chatContainer.classList.remove('centered-layout');
-            chatContainer.classList.add('bottom-layout');
-            document.querySelector('.welcome-message').style.display = 'none';
-            isFirstMessage = false;
+            handleSendMessage();
         }
     }
 
-    // Function to start a new chat
+    // Initialize theme
+    function initTheme() {
+        if (localStorage.getItem('theme') === 'dark') {
+            body.classList.add('dark-theme');
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        } else {
+            themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+        }
+    }
+
+    // Toggle between light and dark theme with animation
+    function toggleTheme() {
+        themeToggle.classList.add('theme-toggle-active');
+        
+        // Add theme transition class for fade effect
+        body.classList.add('theme-transition');
+        
+        // Toggle theme
+        body.classList.toggle('dark-theme');
+        
+        if (body.classList.contains('dark-theme')) {
+            localStorage.setItem('theme', 'dark');
+            themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        } else {
+            localStorage.setItem('theme', 'light');
+            themeToggle.innerHTML = '<i class="fas fa-moon"></i>'; // Fixed missing quote
+        }
+        
+        // Remove transition class after animation completes
+        setTimeout(() => {
+            body.classList.remove('theme-transition');
+            themeToggle.classList.remove('theme-toggle-active');
+        }, 300);
+    }
+
+    // Start a new chat with animation
     function startNewChat() {
-        if (confirm('Start a new chat? Current conversation will be cleared.')) {
-            // Clear messages from UI
-            clearChatUI();
-            
-            // Reset to centered layout
-            chatContainer.classList.remove('bottom-layout');
-            chatContainer.classList.add('centered-layout');
-            
-            // Clear on server
-            fetch('/api/clear', {
-                method: 'POST'
-            }).catch(error => {
-                console.error('Error clearing chat history:', error);
-            });
-        }
+        // Add animation to button
+        newChatButton.classList.add('animate__animated', 'animate__rubberBand');
+        
+        setTimeout(() => {
+            newChatButton.classList.remove('animate__animated', 'animate__rubberBand');
+        }, 800);
+
+        // Immediately clear chat UI for better UX
+        clearChatUI();
+
+        // Clear chat history on server
+        fetch('/api/clear', {
+            method: 'POST'
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showErrorMessage("Couldn't clear chat history on server, but your chat is reset.");
+        });
     }
 
-    // Function to add thinking animation
-    function addThinkingAnimation() {
-        const thinkingDiv = document.createElement('div');
-        thinkingDiv.classList.add('thinking');
-        thinkingDiv.id = 'thinking-animation';
-        
-        const dotsDiv = document.createElement('div');
-        dotsDiv.classList.add('thinking-dots');
-        
-        // Add three dots for the animation
-        for (let i = 0; i < 3; i++) {
-            const dot = document.createElement('span');
-            dotsDiv.appendChild(dot);
-        }
-        
-        thinkingDiv.appendChild(dotsDiv);
-        chatMessages.appendChild(thinkingDiv);
-        scrollToBottom();
+    // Redirect to home/refresh
+    function redirectToHome() {
+        logo.classList.add('animate__animated', 'animate__bounceIn');
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 500);
     }
 
-    // Function to remove thinking animation
-    function removeThinkingAnimation() {
-        const thinkingDiv = document.getElementById('thinking-animation');
-        if (thinkingDiv) {
-            chatMessages.removeChild(thinkingDiv);
+    // Clear chat UI and show welcome message
+    function clearChatUI() {
+        // Remove all messages
+        while (chatMessages.firstChild) {
+            chatMessages.removeChild(chatMessages.firstChild);
         }
-    }
-
-    // Function to send user message and get AI response
-    async function sendMessage(message) {
-        addMessageToChat('user', message);
+        
+        // Add welcome message with animation
+        const welcomeDiv = document.createElement('div');
+        welcomeDiv.classList.add('welcome-message', 'animate__animated', 'animate__fadeIn');
+        welcomeDiv.innerHTML = '<h2>Welcome to SAHPAATHI</h2><p>Ask me anything about your studies!</p>';
+        chatMessages.appendChild(welcomeDiv);
+        
+        // Clear input
         userInput.value = '';
+        userInput.style.height = 'auto';
+        userInput.focus();
+    }
+
+    // Auto-adjust input height
+    function adjustInputHeight() {
+        userInput.style.height = 'auto';
+        userInput.style.height = (userInput.scrollHeight) + 'px';
+    }
+
+    // Send message to API and handle response
+    async function sendMessage(message) {
+        // Add user message to chat
+        addMessageToChat('user', message);
         
-        addThinkingAnimation();
+        // Clear input field and reset height
+        userInput.value = '';
+        userInput.style.height = 'auto';
+        userInput.focus();
+        
+        // Show typing indicator
+        const typingIndicator = showTypingIndicator();
         
         try {
+            // Send message to API - Fixed parameter name to match backend
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: message }),
+                body: JSON.stringify({ prompt: message }), // Using 'prompt' to match backend
             });
             
             if (!response.ok) {
@@ -196,47 +171,112 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const data = await response.json();
-            removeThinkingAnimation();
-            addMessageToChat('ai', data.response);
+            
+            // Remove typing indicator
+            removeTypingIndicator(typingIndicator);
+            
+            // Add AI response to chat with a small delay for natural feel
+            setTimeout(() => {
+                addMessageToChat('ai', data.response);
+            }, 300);
+            
         } catch (error) {
             console.error('Error:', error);
-            removeThinkingAnimation();
-            addMessageToChat('ai', 'Sorry, I encountered an error. Please try again.');
+            removeTypingIndicator(typingIndicator);
+            
+            // Try with alternative parameter name if first attempt failed
+            try {
+                const altResponse = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message }), // Using 'message' as fallback
+                });
+                
+                if (!altResponse.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const altData = await altResponse.json();
+                addMessageToChat('ai', altData.response);
+                
+            } catch (altError) {
+                console.error('Alternative method also failed:', altError);
+                showErrorMessage("Sorry, I couldn't process your request. Please try again.");
+            }
         }
     }
 
-    // Function to add a message to the chat
+    // Show typing indicator while waiting for AI response
+    function showTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.classList.add('typing-indicator', 'animate__animated', 'animate__fadeIn');
+        
+        const dotsDiv = document.createElement('div');
+        dotsDiv.classList.add('typing-dots');
+        
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('span');
+            dotsDiv.appendChild(dot);
+        }
+        
+        typingDiv.appendChild(dotsDiv);
+        chatMessages.appendChild(typingDiv);
+        scrollToBottom();
+        
+        return typingDiv;
+    }
+
+    // Remove typing indicator
+    function removeTypingIndicator(indicator) {
+        if (indicator && indicator.parentNode === chatMessages) {
+            indicator.classList.add('animate__animated', 'animate__fadeOut');
+            setTimeout(() => {
+                if (indicator.parentNode === chatMessages) {
+                    chatMessages.removeChild(indicator);
+                }
+            }, 300);
+        }
+    }
+
+    // Add message to chat with animation
     function addMessageToChat(role, content) {
         // Remove welcome message if it exists
         const welcomeMessage = document.querySelector('.welcome-message');
         if (welcomeMessage) {
-            chatMessages.removeChild(welcomeMessage);
+            welcomeMessage.classList.add('animate__animated', 'animate__fadeOut');
+            setTimeout(() => {
+                if (welcomeMessage.parentNode === chatMessages) {
+                    chatMessages.removeChild(welcomeMessage);
+                }
+            }, 300);
         }
 
         // Create message element
         const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message');
-        messageDiv.classList.add(role === 'user' ? 'user-message' : 'ai-message');
+        messageDiv.classList.add('message', role === 'user' ? 'user-message' : 'ai-message');
+        messageDiv.classList.add('animate__animated', 'animate__fadeInUp');
 
         // Create message content
         const contentDiv = document.createElement('div');
         contentDiv.classList.add('message-content');
 
-        // If it's an AI message, we need to handle potential formatting
+        // Process content based on role
         if (role === 'ai') {
-            contentDiv.innerHTML = content;
+            contentDiv.innerHTML = formatAIResponse(content);
         } else {
             contentDiv.textContent = content;
         }
 
-        // Create time element
-        const timeDiv = document.createElement('div');
-        timeDiv.classList.add('message-time');
-        timeDiv.textContent = getCurrentTime();
-
-        // Append elements
+        // Append content to message
         messageDiv.appendChild(contentDiv);
-        messageDiv.appendChild(timeDiv);
+        
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.classList.add('message-timestamp');
+        timestamp.textContent = getCurrentTime();
+        messageDiv.appendChild(timestamp);
         
         // Add to chat
         chatMessages.appendChild(messageDiv);
@@ -245,142 +285,96 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToBottom();
     }
 
-    // Function to format AI responses (handle code blocks, links, etc.)
+    // Show error message
+    function showErrorMessage(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.classList.add('message', 'ai-message', 'error-message', 'animate__animated', 'animate__shakeX');
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('message-content');
+        contentDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        
+        errorDiv.appendChild(contentDiv);
+        chatMessages.appendChild(errorDiv);
+        
+        scrollToBottom();
+    }
+
+    // Format AI response with Markdown-like formatting
     function formatAIResponse(text) {
-        // Format headings (# Heading)
-        text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-        text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-        text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+        if (!text) return "Sorry, I couldn't generate a response.";
         
-        // Format bold and italic
-        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
-        text = text.replace(/_(.*?)_/g, '<em>$1</em>');
+        // Handle code blocks
+        text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
         
-        // Format lists
-        text = text.replace(/^\s*\*\s+(.*$)/gm, '<li>$1</li>');
-        text = text.replace(/^\s*\-\s+(.*$)/gm, '<li>$1</li>');
-        text = text.replace(/^\s*\d+\.\s+(.*$)/gm, '<li>$1</li>');
-        
-        // Convert consecutive <li> elements to <ul> and </ul>
-        text = text.replace(/(<li>.*<\/li>)(\s*<li>)/g, '$1</ul>\n<ul>$2');
-        text = text.replace(/(<li>.*<\/li>)(\s*[^<])/g, '$1</ul>\n$2');
-        text = text.replace(/([^>])\s*(<li>)/g, '$1\n<ul>$2');
-        
-        // Handle code blocks (text between triple backticks)
-        text = text.replace(/```(\w*)([\s\S]*?)```/g, function(match, language, code) {
-            return `<pre><code class="${language}">${escapeHtml(code.trim())}</code></pre>`;
-        });
-        
-        // Handle inline code (text between single backticks)
+        // Handle inline code
         text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
         
-        // Handle basic Markdown-style links [text](url)
-        text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+        // Handle bold text
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
-        // Process line breaks with a specific approach for paragraph handling
-        const paragraphs = text.split(/\n\n+/);
-        text = paragraphs.map(p => {
-            // If it's not already a tag-enclosed element and not empty
-            if (p.trim() && !p.match(/^<[^>]+>/)) {
-                return `<p>${p.replace(/\n/g, '<br>')}</p>`;
-            }
-            return p;
-        }).join('\n\n');
+        // Handle italic text
+        text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Handle links
+        text = text.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+        
+        // Handle line breaks
+        text = text.replace(/\n/g, '<br>');
         
         return text;
     }
 
-    // Function to escape HTML
-    function escapeHtml(unsafe) {
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    // Function to get current time
+    // Get current time in HH:MM format
     function getCurrentTime() {
         const now = new Date();
-        return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    // Function to scroll to bottom of chat
-    function scrollToBottom() {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // Function to clear chat UI (without confirmation)
-    function clearChatUI() {
-        // Clear messages from UI
-        while (chatMessages.firstChild) {
-            chatMessages.removeChild(chatMessages.firstChild);
-        }
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
         
-        // Add welcome message back
-        const welcomeDiv = document.createElement('div');
-        welcomeDiv.classList.add('welcome-message');
-        welcomeDiv.innerHTML = '<h2>Welcome to SAHPAATHI</h2><p>Ask me anything about your studies!</p>';
-        chatMessages.appendChild(welcomeDiv);
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        
+        return `${hours}:${minutes} ${ampm}`;
     }
 
-    // Load chat history when page loads
+    // Scroll chat to bottom smoothly
+    function scrollToBottom() {
+        chatMessages.scrollTo({
+            top: chatMessages.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+
+    // Load chat history
     function loadChatHistory() {
         fetch('/api/history')
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
             .then(data => {
                 if (data.history && data.history.length > 0) {
-                    // Switch to chat layout since there's history
-                    switchToChatLayout();
-                    
-                    // Remove welcome message if there's history
+                    // Remove welcome message if chat history exists
                     const welcomeMessage = document.querySelector('.welcome-message');
-                    if (welcomeMessage) {
+                    if (welcomeMessage && welcomeMessage.parentNode === chatMessages) {
                         chatMessages.removeChild(welcomeMessage);
                     }
                     
-                    // Add messages to chat
-                    data.history.forEach(msg => {
-                        const content = msg.role === 'assistant' ? formatAIResponse(msg.content) : msg.content;
-                        addMessageToChat(msg.role === 'assistant' ? 'ai' : 'user', content);
+                    // Add messages to chat with staggered animation
+                    data.history.forEach((item, index) => {
+                        setTimeout(() => {
+                            const role = item.role === 'assistant' ? 'ai' : 'user';
+                            const content = item.content;
+                            addMessageToChat(role, content);
+                        }, index * 200); // Stagger the appearance
                     });
                 }
             })
             .catch(error => {
                 console.error('Error loading chat history:', error);
+                // Don't show error message for history loading - not critical
             });
     }
-
-    // Focus the input field when the page loads
-    userInput.focus();
-
-    // Initial load of chat history
-    loadChatHistory();
-});
-
-// Add functionality for theme toggle
-function toggleTheme() {
-  const body = document.body;
-  body.classList.toggle('dark-theme');
-  const isDark = body.classList.contains('dark-theme');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-}
-
-// Add functionality for starting a new chat
-function startNewChat() {
-  // Logic to clear the chat and start a new one
-  const chatContainer = document.querySelector('.chat-container');
-  chatContainer.innerHTML = ''; // Clear chat messages
-  alert('New chat started!'); // Placeholder action
-}
-
-// Load theme from localStorage on page load
-window.addEventListener('DOMContentLoaded', () => {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'dark') {
-    document.body.classList.add('dark-theme');
-  }
 });
