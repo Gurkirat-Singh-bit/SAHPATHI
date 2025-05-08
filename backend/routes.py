@@ -1,3 +1,5 @@
+import re
+import json
 from flask import Blueprint, render_template, request, jsonify, session, send_from_directory, url_for
 import os
 import sys
@@ -391,3 +393,270 @@ def delete_teacher(teacher_id):
 def uploaded_file(filename):
     """Serve uploaded/generated files"""
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+@routes.route('/api/generate-quiz', methods=['POST'])
+def generate_quiz():
+    """Generate a quiz based on chat history"""
+    data = request.json
+    messages = data.get('messages', [])
+    session_id = data.get('session_id')
+    
+    if not messages and not session_id:
+        return jsonify({'error': 'Either messages or session_id is required'}), 400
+    
+    # If no messages provided but session_id is, get the last 5 user questions from history
+    if not messages and session_id:
+        chat_history = db.get_chat_history(session_id)
+        user_messages = [msg['content'] for msg in chat_history if msg['role'] == 'user']
+        messages = user_messages[-5:] if len(user_messages) >= 5 else user_messages
+    
+    # Ensure we have messages to work with
+    if not messages:
+        return jsonify({'error': 'No messages found to generate quiz'}), 400
+    
+    # Create a prompt to generate the quiz
+    prompt = f"""Based on these questions/topics: 
+{', '.join(messages)}
+
+Generate a multiple-choice quiz with 5 questions. Each question should have 4 options with only one correct answer.
+Format your response as a JSON object with this structure:
+{{
+  "quiz": [
+    {{
+      "question": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": "Option A"
+    }},
+    ... more questions ...
+  ]
+}}
+Ensure your response is ONLY the JSON object, with no additional text or explanation."""
+    
+    logger.info(f"Generating quiz from prompt: {prompt[:100]}...")
+    
+    try:
+        # Generate response from the AI
+        raw_response = generate_response(prompt)
+        
+        # Extract JSON from response (in case there's any extra text)
+        import re
+        import json
+        
+        # Look for JSON pattern in the response
+        json_match = re.search(r'({[\s\S]*})', raw_response)
+        if json_match:
+            json_str = json_match.group(1)
+            try:
+                quiz_data = json.loads(json_str)
+                return jsonify(quiz_data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse quiz JSON: {e}")
+                return jsonify({'error': 'Failed to generate valid quiz format'}), 500
+        else:
+            logger.error("No JSON found in response")
+            return jsonify({'error': 'Failed to generate quiz in correct format'}), 500
+            
+    except Exception as e:
+        logger.error(f"Quiz generation error: {str(e)}")
+        return jsonify({'error': f'Error generating quiz: {str(e)}'}), 500
+
+@routes.route('/generate-quiz', methods=['GET'])
+def generate_quiz_endpoint():
+    """Generate a quiz based on the current chat session"""
+    # Get the current session ID if available
+    session_id = request.args.get('session_id')
+    
+    if not session_id:
+        # Try to find the most recent session
+        all_sessions = db.get_all_sessions()
+        if all_sessions and len(all_sessions) > 0:
+            session_id = all_sessions[0]['session_id']
+        else:
+            return jsonify({'error': 'No active session found'}), 400
+    
+    # Get the chat history for this session
+    chat_history = db.get_chat_history(session_id)
+    
+    # Extract user messages from chat history
+    user_messages = [msg['content'] for msg in chat_history if msg['role'] == 'user']
+    
+    # Take the last 5 messages, or all if less than 5
+    messages = user_messages[-5:] if len(user_messages) >= 5 else user_messages
+    
+    # Ensure we have messages to work with
+    if not messages:
+        return jsonify({'error': 'No messages found to generate quiz'}), 400
+    
+    # Create a prompt to generate the quiz
+    prompt = f"""Based on these questions/topics from the user: 
+{', '.join(messages)}
+
+Generate a multiple-choice quiz with 5 questions. Each question should have 4 options with only one correct answer.
+Format your response as a JSON object with this structure:
+{{
+  "questions": [
+    {{
+      "question": "Question text here?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": "Option A"
+    }},
+    ... more questions ...
+  ]
+}}
+Ensure your response is ONLY the JSON object, with no additional text or explanation."""
+    
+    logger.info(f"Generating quiz from prompt: {prompt[:100]}...")
+    
+    try:
+        # Generate response from the AI
+        raw_response = generate_response(prompt)
+        
+        # Extract JSON from response (in case there's any extra text)
+        import re
+        import json
+        
+        # Look for JSON pattern in the response
+        json_match = re.search(r'({[\s\S]*})', raw_response)
+        if json_match:
+            json_str = json_match.group(1)
+            try:
+                quiz_data = json.loads(json_str)
+                
+                # Ensure it has the expected format
+                if "questions" not in quiz_data and "quiz" in quiz_data:
+                    # Handle alternate format if model returned "quiz" instead of "questions"
+                    quiz_data["questions"] = quiz_data["quiz"]
+                    del quiz_data["quiz"]
+                
+                return jsonify(quiz_data)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse quiz JSON: {e}")
+                
+                # Fallback to a simple quiz if JSON parsing fails
+                return jsonify({
+                    "questions": [
+                        {
+                            "question": "What's a common challenge when working with AI models?",
+                            "options": ["They never fail", "Output format inconsistency", "They're too slow", "They require no prompting"],
+                            "correct": "Output format inconsistency"
+                        }
+                    ]
+                })
+        else:
+            logger.error("No JSON found in response")
+            return jsonify({'error': 'Failed to generate quiz in correct format'}), 500
+            
+    except Exception as e:
+        logger.error(f"Quiz generation error: {str(e)}")
+        return jsonify({'error': f'Error generating quiz: {str(e)}'}), 500
+
+@routes.route('/generate-syllabus-quiz', methods=['POST'])
+def generate_quiz_from_syllabus():
+    """Generate a quiz based on syllabus text."""
+    try:
+        # First, log the raw request to debug
+        logger.info(f"Received syllabus quiz request: Content-Type={request.content_type}")
+        
+        # Check if the request has JSON content
+        if not request.is_json:
+            logger.error("Request doesn't contain valid JSON")
+            return jsonify({"error": "Request must be a valid JSON"}), 400
+        
+        # Parse the JSON data
+        data = request.json
+        logger.info(f"Parsed JSON data: {data}")
+        
+        if not data:
+            return jsonify({"error": "Empty request body"}), 400
+            
+        if 'text' not in data:
+            logger.error("Missing 'text' field in request")
+            return jsonify({"error": "No syllabus text provided. Please include a 'text' field in your request."}), 400
+        
+        text = data.get('text')
+        count = data.get('count', 5)  # Default to 5 questions instead of 10
+        
+        # Log the text length to help diagnose issues
+        text_length = len(text.strip()) if text else 0
+        logger.info(f"Syllabus text length: {text_length} characters")
+        
+        # Reduced minimum character requirement from 100 to 20
+        if not text or text_length < 20:
+            logger.error(f"Syllabus text too short: {text_length} characters")
+            return jsonify({"error": "Syllabus text is too short (minimum 20 characters)"}), 400
+        
+        # Generate the quiz using Gemini
+        prompt = f"""
+        Based on the following syllabus or study material, create a multiple-choice quiz with {count} questions.
+        
+        SYLLABUS/STUDY MATERIAL:
+        {text}
+        
+        INSTRUCTIONS:
+        1. Generate {count} multiple-choice questions based on factual information in the provided text.
+        2. Each question should have exactly 4 options.
+        3. Only one option should be correct.
+        4. Don't make questions too obvious or too difficult.
+        5. Focus on important concepts and key information.
+        6. Return your response in JSON format as follows:
+        
+        {{
+            "questions": [
+                {{
+                    "question": "Question text goes here?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct": "Exact text of the correct option"
+                }},
+                ...more questions...
+            ]
+        }}
+        
+        Only return the JSON, nothing else.
+        """
+        
+        # Make API call to Gemini
+        logger.info(f"Sending prompt to Gemini, length: {len(prompt)} characters")
+        generated_quiz = generate_response(prompt)
+        logger.info(f"Received response from Gemini, length: {len(generated_quiz)} characters")
+        
+        # Parse the JSON response
+        try:
+            # Try direct JSON parsing first
+            quiz_data = json.loads(generated_quiz)
+            logger.info("Successfully parsed JSON response directly")
+            return jsonify(quiz_data)
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON parsing failed: {e}, trying to extract JSON from text")
+            
+            # If the response isn't valid JSON, try to extract just the JSON part
+            match = re.search(r'({[\s\S]*})', generated_quiz, re.DOTALL)
+            if match:
+                try:
+                    json_str = match.group(1)
+                    quiz_data = json.loads(json_str)
+                    logger.info("Successfully extracted and parsed JSON from response")
+                    return jsonify(quiz_data)
+                except json.JSONDecodeError as e2:
+                    logger.error(f"Extracted JSON parsing failed: {e2}")
+            
+            # If all JSON parsing fails, create a simple fallback quiz
+            logger.error("All JSON parsing attempts failed, using fallback quiz")
+            return jsonify({
+                "questions": [
+                    {
+                        "question": "What can be challenging when working with AI-generated content?",
+                        "options": [
+                            "Getting consistent formatting", 
+                            "AI never makes mistakes", 
+                            "Processing is too fast", 
+                            "Files are too small"
+                        ],
+                        "correct": "Getting consistent formatting"
+                    }
+                ]
+            })
+    
+    except Exception as e:
+        logger.error(f"Unexpected error in generate_quiz_from_syllabus: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": f"Server error: {str(e)}"}), 500

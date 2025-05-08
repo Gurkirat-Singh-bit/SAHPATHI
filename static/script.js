@@ -31,10 +31,22 @@ document.addEventListener('DOMContentLoaded', function() {
     const teacherDropdown = document.getElementById('teacher-dropdown'); // Added missing element
     const teacherListContainer = document.getElementById('teacher-list-container'); // Added for list container
     
+    // Quiz Mode elements
+    const quizGenerator = document.getElementById('quiz-generator'); // Option in sidebar
+    const quizModeScreen = document.getElementById('quiz-generator-screen'); // Full screen section
+    const closeQuizMode = document.getElementById('close-quiz-btn'); // Close button
+    const quizContainer = document.getElementById('quiz-container'); // Container for quiz questions
+    const quizControls = document.getElementById('quiz-controls'); // Quiz navigation controls
+    const quizHeader = document.getElementById('quiz-header'); // Quiz header with progress
+    const quizResults = document.getElementById('quiz-results'); // Quiz results section
+    let currentQuizData = null; // Store the current quiz data
+    let currentQuizQuestion = 0; // Track the current question
+    let quizAnswers = []; // Store user's answers
+
     // Tools sidebar elements
     const toolsSidebar = document.querySelector('.tools-sidebar');
     const toolsToggle = document.getElementById('tools-toggle');
-    const pdfConverter = document.getElementById('pdf-converter');
+    const textToPdf = document.getElementById('text-to-pdf');
     const mdToPdf = document.getElementById('md-to-pdf');
     
     // Main content PDF converter elements
@@ -96,16 +108,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Tools sidebar event listeners
     toolsToggle.addEventListener('click', toggleToolsSidebar);
-    pdfConverter.addEventListener('click', showMainPdfConverterPanel); 
-    mdToPdf.addEventListener('click', () => {
-        // Show MD to PDF converter and expand sidebar if needed
-        showMainPdfConverterPanel();
-        if (!toolsSidebar.classList.contains('expanded')) {
-            toggleToolsSidebar();
-        }
-        // Add active class to the button
-        setActiveTool(mdToPdf);
-    });
+    
+    // Text to PDF tool event listener
+    if (textToPdf) {
+        textToPdf.addEventListener('click', () => {
+            showMainPdfConverterPanel();
+            if (!toolsSidebar.classList.contains('expanded')) {
+                toggleToolsSidebar();
+            }
+            setActiveTool(textToPdf);
+        });
+    }
+    
+    // MD to PDF event listener
+    if (mdToPdf) {
+        mdToPdf.addEventListener('click', () => {
+            // Show MD to PDF converter and expand sidebar if needed
+            showMainPdfConverterPanel();
+            if (!toolsSidebar.classList.contains('expanded')) {
+                toggleToolsSidebar();
+            }
+            // Add active class to the button
+            setActiveTool(mdToPdf);
+        });
+    }
+    
+    // Quiz Generator event listener
+    if (quizGenerator) {
+        quizGenerator.addEventListener('click', () => {
+            // Show Quiz Generator screen
+            showQuizModeScreen();
+            
+            // Expand sidebar if needed
+            if (!toolsSidebar.classList.contains('expanded')) {
+                toggleToolsSidebar();
+            }
+            
+            // Add active class to the button
+            setActiveTool(quizGenerator);
+
+            // Generate quiz immediately
+            generateQuiz();
+        });
+    }
     
     // Teacher mode event listeners
     if (teacherModeBtn) {
@@ -158,6 +203,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize - fetch chat sessions and teacher mode
     initializeApplication();
     initializeTeacherMode();
+
+    // Initialize tool modals
+    initToolModals();
 
     // Functions
     
@@ -1622,5 +1670,1459 @@ document.addEventListener('DOMContentLoaded', function() {
     // If we have remove file button, set up listener
     if (removeFileBtn) {
         removeFileBtn.addEventListener('click', removeSelectedFile);
+    }
+
+    // Create Quiz Mode Screen if it doesn't exist
+    function createQuizModeScreen() {
+        const fullScreenSection = document.createElement('div');
+        fullScreenSection.id = 'quiz-mode-screen';
+        fullScreenSection.className = 'full-screen-section';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'section-header';
+        header.innerHTML = `
+            <h2><i class="fas fa-question-circle"></i> Quiz Generator</h2>
+            <button id="close-quiz-mode" class="close-section-btn"><i class="fas fa-times"></i></button>
+        `;
+        
+        // Create quiz container
+        const quizContainer = document.createElement('div');
+        quizContainer.id = 'quiz-container';
+        quizContainer.className = 'quiz-container';
+        
+        // Create quiz header (for progress)
+        const quizHeader = document.createElement('div');
+        quizHeader.id = 'quiz-header';
+        quizHeader.className = 'quiz-header';
+        quizHeader.innerHTML = `
+            <div class="quiz-progress">
+                <span class="quiz-progress-text">Question <span id="current-question">1</span> of <span id="total-questions">5</span></span>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 20%"></div>
+                </div>
+            </div>
+        `;
+        
+        // Create description
+        const description = document.createElement('div');
+        description.className = 'section-description';
+        description.innerHTML = `
+            <p>This quiz is generated based on your recent conversations. Test your knowledge on the topics you've been discussing!</p>
+            <button id="generate-quiz-btn" class="primary-button"><i class="fas fa-sync"></i> Generate Quiz</button>
+        `;
+        
+        // Create quiz question container
+        const questionContainer = document.createElement('div');
+        questionContainer.id = 'question-container';
+        questionContainer.className = 'question-container';
+        questionContainer.innerHTML = `
+            <div class="loading-quiz hidden">
+                <i class="fas fa-circle-notch fa-spin"></i> Generating quiz based on your conversations...
+            </div>
+            <div class="quiz-start-prompt">
+                <p>Click "Generate Quiz" to create a quiz based on your recent conversations.</p>
+                <i class="fas fa-arrow-up fa-2x"></i>
+            </div>
+        `;
+        
+        // Create quiz controls
+        const quizControls = document.createElement('div');
+        quizControls.id = 'quiz-controls';
+        quizControls.className = 'quiz-controls hidden';
+        quizControls.innerHTML = `
+            <button id="prev-question" class="secondary-button" disabled><i class="fas fa-arrow-left"></i> Previous</button>
+            <button id="next-question" class="primary-button">Next <i class="fas fa-arrow-right"></i></button>
+            <button id="submit-quiz" class="success-button hidden">Submit Quiz</button>
+        `;
+        
+        // Create quiz results section
+        const quizResults = document.createElement('div');
+        quizResults.id = 'quiz-results';
+        quizResults.className = 'quiz-results hidden';
+        
+        // Assemble the quiz container
+        quizContainer.appendChild(quizHeader);
+        quizContainer.appendChild(questionContainer);
+        quizContainer.appendChild(quizControls);
+        quizContainer.appendChild(quizResults);
+        
+        // Assemble the screen
+        fullScreenSection.appendChild(header);
+        fullScreenSection.appendChild(description);
+        fullScreenSection.appendChild(quizContainer);
+        
+        // Add to document
+        document.body.appendChild(fullScreenSection);
+        
+        // Set global variables
+        quizModeScreen = fullScreenSection;
+        closeQuizMode = document.getElementById('close-quiz-mode');
+        quizContainer = document.getElementById('quiz-container');
+        quizControls = document.getElementById('quiz-controls');
+        quizHeader = document.getElementById('quiz-header');
+        quizResults = document.getElementById('quiz-results');
+        
+        // Add event listeners
+        const generateQuizBtn = document.getElementById('generate-quiz-btn');
+        const prevQuestionBtn = document.getElementById('prev-question');
+        const nextQuestionBtn = document.getElementById('next-question');
+        const submitQuizBtn = document.getElementById('submit-quiz');
+        
+        closeQuizMode.addEventListener('click', hideQuizModeScreen);
+        generateQuizBtn.addEventListener('click', generateQuiz);
+        prevQuestionBtn.addEventListener('click', showPreviousQuestion);
+        nextQuestionBtn.addEventListener('click', showNextQuestion);
+        submitQuizBtn.addEventListener('click', submitQuiz);
+        
+        // Return the screen for further use
+        return fullScreenSection;
+    }
+
+    // Show the Quiz Mode screen
+    function showQuizModeScreen() {
+        if (!quizModeScreen) {
+            createQuizModeScreen();
+        }
+        
+        // Reset quiz state
+        resetQuizState();
+        
+        // Show the screen
+        quizModeScreen.classList.add('visible');
+    }
+    
+    // Hide the Quiz Mode screen
+    function hideQuizModeScreen() {
+        if (!quizModeScreen) return;
+        quizModeScreen.classList.remove('visible');
+    }
+    
+    // Reset quiz state
+    function resetQuizState() {
+        currentQuizData = null;
+        currentQuizQuestion = 0;
+        quizAnswers = [];
+        
+        // Reset UI
+        const questionContainer = document.getElementById('question-container');
+        const quizStartPrompt = document.querySelector('.quiz-start-prompt');
+        const loadingQuiz = document.querySelector('.loading-quiz');
+        
+        if (questionContainer) {
+            // Show start prompt, hide loading
+            if (quizStartPrompt) quizStartPrompt.classList.remove('hidden');
+            if (loadingQuiz) loadingQuiz.classList.add('hidden');
+        }
+        
+        // Hide controls and results
+        if (quizControls) quizControls.classList.add('hidden');
+        if (quizResults) quizResults.classList.add('hidden');
+    }
+    
+    // Generate a new quiz based on chat history
+    async function generateQuiz() {
+        if (!currentSessionId) {
+            showStatusMessage('error', 'No active chat session found. Please start a conversation first.');
+            return;
+        }
+        
+        // Show loading indicator
+        const questionContainer = document.getElementById('question-container');
+        const loadingQuiz = document.querySelector('.loading-quiz');
+        const quizStartPrompt = document.querySelector('.quiz-start-prompt');
+        
+        if (loadingQuiz) loadingQuiz.classList.remove('hidden');
+        if (quizStartPrompt) quizStartPrompt.classList.add('hidden');
+        
+        // Hide quiz controls and previous content
+        if (quizControls) quizControls.classList.add('hidden');
+        if (quizResults) quizResults.classList.add('hidden');
+        
+        try {
+            console.log("Generating quiz...");
+            
+            // Request quiz generation from the server
+            const response = await fetch(`/generate-quiz?session_id=${currentSessionId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Server responded with status ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log("Received quiz data:", data);
+            
+            // Store quiz data and reset current question
+            currentQuizData = data.questions || [];
+            currentQuizQuestion = 0;
+            quizAnswers = new Array(currentQuizData.length).fill(null);
+            
+            // Hide loading indicator
+            if (loadingQuiz) loadingQuiz.classList.add('hidden');
+            
+            // Show controls if we have questions
+            if (currentQuizData.length > 0) {
+                if (quizControls) quizControls.classList.remove('hidden');
+                showQuestion(0);
+            } else {
+                // Show message if no questions were generated
+                if (questionContainer) {
+                    questionContainer.innerHTML = `
+                        <div class="no-quiz-data">
+                            <p>Could not generate a quiz. Please have a longer conversation first.</p>
+                            <button id="try-again-btn" class="secondary-button">Try Again</button>
+                        </div>
+                    `;
+                    
+                    // Add event listener to try again button
+                    const tryAgainBtn = document.getElementById('try-again-btn');
+                    if (tryAgainBtn) {
+                        tryAgainBtn.addEventListener('click', generateQuiz);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error generating quiz:', error);
+            
+            // Show error in question container
+            if (questionContainer) {
+                questionContainer.innerHTML = `
+                    <div class="quiz-error">
+                        <p><i class="fas fa-exclamation-circle"></i> Failed to generate quiz: ${error.message}</p>
+                        <button id="try-again-btn" class="secondary-button">Try Again</button>
+                    </div>
+                `;
+                
+                // Add event listener to try again button
+                const tryAgainBtn = document.getElementById('try-again-btn');
+                if (tryAgainBtn) {
+                    tryAgainBtn.addEventListener('click', generateQuiz);
+                }
+            }
+            
+            // Hide loading indicator
+            if (loadingQuiz) loadingQuiz.classList.add('hidden');
+        }
+    }
+    
+    // Show a specific quiz question
+    function showQuestion(index) {
+        if (!currentQuizData || index < 0 || index >= currentQuizData.length) return;
+        
+        const questionContainer = document.getElementById('question-container');
+        const currentQuestionEl = document.getElementById('current-question');
+        const totalQuestionsEl = document.getElementById('total-questions');
+        const progressFill = document.querySelector('.progress-fill');
+        const prevQuestionBtn = document.getElementById('prev-question');
+        const nextQuestionBtn = document.getElementById('next-question');
+        const submitQuizBtn = document.getElementById('submit-quiz');
+        
+        // Update question number and progress bar
+        if (currentQuestionEl) currentQuestionEl.textContent = index + 1;
+        if (totalQuestionsEl) totalQuestionsEl.textContent = currentQuizData.length;
+        if (progressFill) {
+            const progressPercentage = ((index + 1) / currentQuizData.length) * 100;
+            progressFill.style.width = `${progressPercentage}%`;
+        }
+        
+        // Enable/disable navigation buttons
+        if (prevQuestionBtn) prevQuestionBtn.disabled = index === 0;
+        
+        // Show submit button on last question, next button otherwise
+        if (nextQuestionBtn && submitQuizBtn) {
+            if (index === currentQuizData.length - 1) {
+                nextQuestionBtn.classList.add('hidden');
+                submitQuizBtn.classList.remove('hidden');
+            } else {
+                nextQuestionBtn.classList.remove('hidden');
+                submitQuizBtn.classList.add('hidden');
+            }
+        }
+        
+        // Display the current question
+        const currentQuestion = currentQuizData[index];
+        
+        if (questionContainer) {
+            // Create question content
+            let questionHTML = `
+                <div class="quiz-question">
+                    <h3>${index + 1}. ${currentQuestion.question}</h3>
+                    <div class="quiz-options">
+            `;
+            
+            // Add options as radio buttons
+            currentQuestion.options.forEach((option, optionIndex) => {
+                const optionId = `option-${index}-${optionIndex}`;
+                const isChecked = quizAnswers[index] === option ? 'checked' : '';
+                
+                questionHTML += `
+                    <div class="quiz-option">
+                        <input type="radio" id="${optionId}" name="question-${index}" value="${option}" ${isChecked}>
+                        <label for="${optionId}">${option}</label>
+                    </div>
+                `;
+            });
+            
+            questionHTML += `
+                    </div>
+                </div>
+            `;
+            
+            questionContainer.innerHTML = questionHTML;
+            
+            // Add event listeners to radio buttons
+            const radioButtons = questionContainer.querySelectorAll('input[type="radio"]');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    // Update answers array when user selects an option
+                    quizAnswers[index] = e.target.value;
+                });
+            });
+        }
+    }
+    
+    // Show the previous question
+    function showPreviousQuestion() {
+        if (currentQuizQuestion > 0) {
+            currentQuizQuestion--;
+            showQuestion(currentQuizQuestion);
+        }
+    }
+    
+    // Show the next question
+    function showNextQuestion() {
+        if (currentQuizData && currentQuizQuestion < currentQuizData.length - 1) {
+            currentQuizQuestion++;
+            showQuestion(currentQuizQuestion);
+        }
+    }
+    
+    // Submit the quiz and show results
+    function submitQuiz() {
+        if (!currentQuizData || currentQuizData.length === 0) return;
+        
+        // Calculate score
+        let correctAnswers = 0;
+        let unansweredQuestions = 0;
+        
+        currentQuizData.forEach((question, index) => {
+            if (quizAnswers[index] === null) {
+                unansweredQuestions++;
+            } else if (quizAnswers[index] === question.correct) {
+                correctAnswers++;
+            }
+        });
+        
+        const totalQuestions = currentQuizData.length;
+        const scorePercentage = Math.round((correctAnswers / totalQuestions) * 100);
+        
+        // Hide question container and controls
+        const questionContainer = document.getElementById('question-container');
+        if (questionContainer) questionContainer.classList.add('hidden');
+        if (quizControls) quizControls.classList.add('hidden');
+        
+        // Show results
+        if (quizResults) {
+            // Determine result message based on score
+            let resultMessage = '';
+            let resultIcon = '';
+            
+            if (scorePercentage >= 90) {
+                resultMessage = 'Outstanding! You\'ve mastered this material!';
+                resultIcon = 'trophy';
+            } else if (scorePercentage >= 70) {
+                resultMessage = 'Great job! You have a good understanding of the topic.';
+                resultIcon = 'award';
+            } else if (scorePercentage >= 50) {
+                resultMessage = 'Good effort! You\'re making progress.';
+                resultIcon = 'thumbs-up';
+            } else {
+                resultMessage = 'Keep practicing! You\'ll get better with more study.';
+                resultIcon = 'book';
+            }
+            
+            // Build results HTML
+            let resultsHTML = `
+                <div class="quiz-score">
+                    <i class="fas fa-${resultIcon} quiz-score-icon"></i>
+                    <h2>Your Score: ${correctAnswers}/${totalQuestions} (${scorePercentage}%)</h2>
+                    <p>${resultMessage}</p>
+                `;
+                
+            // Add warning for unanswered questions if any
+            if (unansweredQuestions > 0) {
+                resultsHTML += `
+                    <p class="unanswered-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        You left ${unansweredQuestions} question${unansweredQuestions > 1 ? 's' : ''} unanswered.
+                    </p>
+                `;
+            }
+            
+            // Add review section
+            resultsHTML += `
+                    <div class="quiz-review-section">
+                        <h3>Review Questions</h3>
+                        <div class="quiz-review">
+            `;
+            
+            // Add each question with the correct answer and user's answer
+            currentQuizData.forEach((question, index) => {
+                const userAnswer = quizAnswers[index];
+                const isCorrect = userAnswer === question.correct;
+                const statusClass = userAnswer === null ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect');
+                
+                resultsHTML += `
+                    <div class="review-question ${statusClass}">
+                        <p class="question-text">${index + 1}. ${question.question}</p>
+                        <p class="correct-answer">Correct answer: <strong>${question.correct}</strong></p>
+                `;
+                
+                if (userAnswer !== null) {
+                    resultsHTML += `
+                        <p class="user-answer">Your answer: <strong>${userAnswer}</strong></p>
+                    `;
+                } else {
+                    resultsHTML += `
+                        <p class="user-answer">Your answer: <em>Not answered</em></p>
+                    `;
+                }
+                
+                resultsHTML += `</div>`;
+            });
+            
+            // Add buttons to retake or create new quiz
+            resultsHTML += `
+                        </div>
+                    </div>
+                    <div class="quiz-action-buttons">
+                        <button id="new-quiz-btn" class="primary-button"><i class="fas fa-sync"></i> Generate New Quiz</button>
+                        <button id="close-results-btn" class="secondary-button"><i class="fas fa-times"></i> Close</button>
+                    </div>
+                </div>
+            `;
+            
+            quizResults.innerHTML = resultsHTML;
+            quizResults.classList.remove('hidden');
+            
+            // Add event listeners to buttons
+            const newQuizBtn = document.getElementById('new-quiz-btn');
+            const closeResultsBtn = document.getElementById('close-results-btn');
+            
+            if (newQuizBtn) {
+                newQuizBtn.addEventListener('click', () => {
+                    quizResults.classList.add('hidden');
+                    if (questionContainer) questionContainer.classList.remove('hidden');
+                    generateQuiz();
+                });
+            }
+            
+            if (closeResultsBtn) {
+                closeResultsBtn.addEventListener('click', hideQuizModeScreen);
+            }
+        }
+    }
+
+    // Tool management system
+    let activeToolModal = null;
+
+    // Initialize tool modals
+    function initToolModals() {
+        console.log("Initializing tool modals system...");
+        
+        // Add tool-modal class to existing modals
+        if (mainPdfConverter) {
+            mainPdfConverter.classList.add('tool-modal');
+        }
+        
+        if (quizModeScreen) {
+            quizModeScreen.classList.add('tool-modal');
+        }
+        
+        if (teacherModeScreen) {
+            teacherModeScreen.classList.add('tool-modal');
+        }
+        
+        // Set up proper close buttons
+        if (closeConverterBtn) {
+            closeConverterBtn.addEventListener('click', hideAllToolSections);
+        }
+        
+        if (closeQuizMode) {
+            closeQuizMode.addEventListener('click', hideAllToolSections);
+        }
+        
+        if (closeTeacherMode) {
+            closeTeacherMode.addEventListener('click', hideAllToolSections);
+        }
+        
+        // Update tool click handlers
+        if (quizGenerator) {
+            // Remove old event listener
+            const oldListeners = getEventListeners(quizGenerator);
+            if (oldListeners && oldListeners.click) {
+                for (const listener of oldListeners.click) {
+                    quizGenerator.removeEventListener('click', listener.listener);
+                }
+            }
+            
+            // Add new event listener
+            quizGenerator.addEventListener('click', () => {
+                console.log("Quiz generator clicked");
+                showToolSection(quizGenerator);
+                if (!quizModeScreen) {
+                    quizModeScreen = createQuizModeScreen();
+                }
+                quizModeScreen.classList.add('visible');
+                resetQuizState();
+                generateQuiz();
+            });
+        }
+        
+        if (teacherModeOption) {
+            // Remove old event listener
+            const oldListeners = getEventListeners(teacherModeOption);
+            if (oldListeners && oldListeners.click) {
+                for (const listener of oldListeners.click) {
+                    teacherModeOption.removeEventListener('click', listener.listener);
+                }
+            }
+            
+            // Add new event listener
+            teacherModeOption.addEventListener('click', () => {
+                console.log("Teacher mode clicked");
+                showToolSection(teacherModeOption);
+                if (!teacherModeScreen) {
+                    teacherModeScreen = createTeacherModeScreen();
+                }
+                teacherModeScreen.classList.add('visible');
+                updateActiveTeacherDisplay();
+            });
+        }
+        
+        // Add click outside listener to close modals
+        document.addEventListener('click', function(event) {
+            if (activeToolModal && 
+                !event.target.closest('.tool-modal') && 
+                !event.target.closest('.tool-item') && 
+                !event.target.closest('.header-btn')) {
+                console.log("Clicked outside modal, closing");
+                hideAllToolSections();
+            }
+        });
+    }
+
+    // Hide all tool sections
+    function hideAllToolSections() {
+        console.log("Hiding all tool sections");
+        
+        // Hide PDF converter
+        if (mainPdfConverter) {
+            mainPdfConverter.classList.remove('visible');
+        }
+        
+        // Hide quiz generator
+        if (quizModeScreen) {
+            quizModeScreen.classList.remove('visible');
+        }
+        
+        // Hide teacher mode
+        if (teacherModeScreen) {
+            teacherModeScreen.classList.remove('visible');
+        }
+        
+        // Remove any overlay
+        const existingOverlay = document.querySelector('.modal-overlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+        
+        // Reset active tool
+        activeToolModal = null;
+        
+        // Show chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'flex';
+        }
+    }
+
+    // Show a tool section and hide others
+    function showToolSection(toolElement) {
+        if (!toolElement) return;
+        
+        console.log("Showing tool section for", toolElement.id);
+        
+        // Hide any open tool first
+        hideAllToolSections();
+        
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        document.body.appendChild(overlay);
+        
+        // Hide chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'none';
+        }
+        
+        // Set active tool
+        activeToolModal = toolElement;
+        
+        // Set this tool as active in the sidebar
+        setActiveTool(toolElement);
+        
+        return overlay;
+    }
+
+    // Helper function to get event listeners (simplified version since we can't directly access event listeners)
+    function getEventListeners(element) {
+        // This is a simplified version since browsers don't expose listeners directly
+        // In a real implementation, we would use a more robust approach
+        return null;
+    }
+
+    // Quiz Generator and Teacher Mode event listeners
+    if (quizGenerator) {
+        // Remove any existing event listeners
+        quizGenerator.replaceWith(quizGenerator.cloneNode(true));
+        
+        // Get the fresh element after replacing
+        quizGenerator = document.getElementById('quiz-generator');
+        
+        // Add new event listener with direct modal approach
+        quizGenerator.addEventListener('click', () => {
+            console.log("Quiz generator clicked");
+            
+            // Create overlay for modal appearance
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            document.body.appendChild(overlay);
+            
+            // Hide chat container
+            if (chatContainer) {
+                chatContainer.style.display = 'none';
+            }
+            
+            // Hide any other open tool modals
+            if (mainPdfConverter) mainPdfConverter.classList.remove('visible');
+            if (teacherModeScreen) teacherModeScreen.classList.remove('visible');
+            
+            // Create quiz screen if it doesn't exist
+            if (!quizModeScreen) {
+                quizModeScreen = createQuizModeScreen();
+                quizModeScreen.classList.add('tool-modal');
+            }
+            
+            // Show quiz modal and mark as active
+            quizModeScreen.classList.add('visible');
+            setActiveTool(quizGenerator);
+            activeToolModal = quizGenerator;
+            
+            // Set up close button
+            if (closeQuizMode) {
+                // Remove any existing listeners
+                const newCloseBtn = closeQuizMode.cloneNode(true);
+                closeQuizMode.parentNode.replaceChild(newCloseBtn, closeQuizMode);
+                closeQuizMode = newCloseBtn;
+                
+                // Add listener to close button
+                closeQuizMode.addEventListener('click', () => {
+                    quizModeScreen.classList.remove('visible');
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    if (chatContainer) chatContainer.style.display = 'flex';
+                    activeToolModal = null;
+                });
+            }
+            
+            // Initialize quiz
+            resetQuizState();
+            generateQuiz();
+        });
+    }
+
+    if (teacherModeOption) {
+        // Remove any existing event listeners
+        teacherModeOption.replaceWith(teacherModeOption.cloneNode(true));
+        
+        // Get the fresh element after replacing
+        teacherModeOption = document.getElementById('teacher-mode');
+        
+        // Add new event listener with direct modal approach
+        teacherModeOption.addEventListener('click', () => {
+            console.log("Teacher mode clicked");
+            
+            // Create overlay for modal appearance
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            document.body.appendChild(overlay);
+            
+            // Hide chat container
+            if (chatContainer) {
+                chatContainer.style.display = 'none';
+            }
+            
+            // Hide any other open tool modals
+            if (mainPdfConverter) mainPdfConverter.classList.remove('visible');
+            if (quizModeScreen) quizModeScreen.classList.remove('visible');
+            
+            // Create teacher mode screen if it doesn't exist
+            if (!teacherModeScreen) {
+                teacherModeScreen = createTeacherModeScreen();
+                teacherModeScreen.classList.add('tool-modal');
+            }
+            
+            // Show teacher mode modal and mark as active
+            teacherModeScreen.classList.add('visible');
+            setActiveTool(teacherModeOption);
+            activeToolModal = teacherModeOption;
+            
+            // Set up close button
+            if (closeTeacherMode) {
+                // Remove any existing listeners
+                const newCloseBtn = closeTeacherMode.cloneNode(true);
+                closeTeacherMode.parentNode.replaceChild(newCloseBtn, closeTeacherMode);
+                closeTeacherMode = newCloseBtn;
+                
+                // Add listener to close button
+                closeTeacherMode.addEventListener('click', () => {
+                    teacherModeScreen.classList.remove('visible');
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                    if (chatContainer) chatContainer.style.display = 'flex';
+                    activeToolModal = null;
+                });
+            }
+            
+            // Refresh teachers list and update display
+            fetchAllTeachers();
+            updateActiveTeacherDisplay();
+        });
+    }
+    
+    // Add direct event listeners for Quiz Generator and Teacher Mode
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the elements from the sidebar
+        const quizGeneratorBtn = document.getElementById('quiz-generator');
+        const teacherModeBtn = document.getElementById('teacher-mode');
+        
+        // Get the modal screens
+        const quizGeneratorScreen = document.getElementById('quiz-generator-screen');
+        const teacherModeScreen = document.getElementById('teacher-mode-screen');
+        
+        // Get close buttons
+        const closeQuizBtn = document.getElementById('close-quiz-btn');
+        const closeTeacherBtn = document.getElementById('close-teacher-mode');
+        
+        // Get the chat container
+        const chatContainer = document.getElementById('chat-container');
+        
+        // Add click event for Quiz Generator
+        if (quizGeneratorBtn) {
+            quizGeneratorBtn.addEventListener('click', function() {
+                console.log('Quiz Generator button clicked');
+                // Hide chat container
+                if (chatContainer) chatContainer.style.display = 'none';
+                // Show quiz screen
+                if (quizGeneratorScreen) {
+                    quizGeneratorScreen.style.display = 'block';
+                    // Generate a quiz if needed
+                    const generateQuizBtn = document.getElementById('generate-quiz-btn');
+                    if (generateQuizBtn) {
+                        generateQuizBtn.click(); // Auto-generate quiz
+                    }
+                }
+            });
+        }
+        
+        // Add click event for Teacher Mode
+        if (teacherModeBtn) {
+            teacherModeBtn.addEventListener('click', function() {
+                console.log('Teacher Mode button clicked');
+                // Hide chat container
+                if (chatContainer) chatContainer.style.display = 'none';
+                // Show teacher mode screen
+                if (teacherModeScreen) {
+                    teacherModeScreen.style.display = 'block';
+                    teacherModeScreen.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // Add click event for close buttons
+        if (closeQuizBtn) {
+            closeQuizBtn.addEventListener('click', function() {
+                console.log('Close Quiz button clicked');
+                // Hide quiz screen
+                if (quizGeneratorScreen) quizGeneratorScreen.style.display = 'none';
+                // Show chat container
+                if (chatContainer) chatContainer.style.display = 'flex';
+            });
+        }
+        
+        if (closeTeacherBtn) {
+            closeTeacherBtn.addEventListener('click', function() {
+                console.log('Close Teacher button clicked');
+                // Hide teacher mode screen
+                if (teacherModeScreen) {
+                    teacherModeScreen.style.display = 'none';
+                    teacherModeScreen.classList.add('hidden');
+                }
+                // Show chat container
+                if (chatContainer) chatContainer.style.display = 'flex';
+            });
+        }
+    });
+});
+
+// Direct event handler for Quiz Generator and Teacher Mode
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Direct handler loaded");
+    
+    // Simple direct event handler for Quiz Generator
+    document.getElementById('quiz-generator').onclick = function() {
+        console.log("Quiz Generator clicked");
+        document.getElementById('chat-container').style.display = 'none';
+        document.getElementById('quiz-generator-screen').style.display = 'block';
+        document.getElementById('quiz-generator-screen').classList.remove('hidden');
+    };
+    
+    // Simple direct event handler for Teacher Mode
+    document.getElementById('teacher-mode').onclick = function() {
+        console.log("Teacher Mode clicked");
+        document.getElementById('chat-container').style.display = 'none';
+        document.getElementById('teacher-mode-screen').style.display = 'block';
+        document.getElementById('teacher-mode-screen').classList.remove('hidden');
+    };
+    
+    // Simple direct event handler for closing Quiz Generator
+    document.getElementById('close-quiz-btn').onclick = function() {
+        console.log("Close Quiz clicked");
+        document.getElementById('quiz-generator-screen').style.display = 'none';
+        document.getElementById('chat-container').style.display = 'flex';
+    };
+    
+    // Simple direct event handler for closing Teacher Mode
+    document.getElementById('close-teacher-mode').onclick = function() {
+        console.log("Close Teacher Mode clicked");
+        document.getElementById('teacher-mode-screen').style.display = 'none';
+        document.getElementById('teacher-mode-screen').classList.add('hidden');
+        document.getElementById('chat-container').style.display = 'flex';
+    };
+});
+
+// Fix for Quiz Generator
+(function() {
+    // Execute this immediately when the script loads
+    window.addEventListener('load', function() {
+        console.log("Applying standalone fix for Quiz Generator");
+        
+        // Get the elements we need
+        const quizGeneratorBtn = document.getElementById('quiz-generator');
+        const quizGeneratorScreen = document.getElementById('quiz-generator-screen');
+        const closeQuizBtn = document.getElementById('close-quiz-btn');
+        const chatContainer = document.getElementById('chat-container');
+        
+        if (quizGeneratorBtn && quizGeneratorScreen && closeQuizBtn && chatContainer) {
+            // Remove any existing event listeners by cloning and replacing the element
+            const newQuizBtn = quizGeneratorBtn.cloneNode(true);
+            quizGeneratorBtn.parentNode.replaceChild(newQuizBtn, quizGeneratorBtn);
+            
+            const newCloseBtn = closeQuizBtn.cloneNode(true);
+            closeQuizBtn.parentNode.replaceChild(newCloseBtn, closeQuizBtn);
+            
+            // Add our direct event handlers with highest priority using onclick
+            newQuizBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Quiz Generator being shown (fixed handler)");
+                
+                // Hide chat container
+                chatContainer.style.display = 'none';
+                
+                // Show quiz generator screen
+                quizGeneratorScreen.style.display = 'block';
+                quizGeneratorScreen.classList.remove('hidden');
+                
+                // Attempt to trigger quiz generation
+                const generateQuizBtn = document.getElementById('generate-quiz-btn');
+                if (generateQuizBtn) {
+                    setTimeout(function() {
+                        generateQuizBtn.click();
+                    }, 100);
+                }
+                
+                return false;
+            };
+            
+            // Add close button handler
+            newCloseBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Quiz Generator being hidden (fixed handler)");
+                
+                // Hide quiz generator screen
+                quizGeneratorScreen.style.display = 'none';
+                
+                // Show chat container
+                chatContainer.style.display = 'flex';
+                
+                return false;
+            };
+            
+            console.log("Quiz Generator fix applied successfully");
+        } else {
+            console.error("Could not find all required elements for Quiz Generator fix");
+        }
+    });
+})();
+
+// Enhanced Quiz Generator functionality
+function initEnhancedQuizGenerator() {
+    console.log("Initializing enhanced Quiz Generator");
+    
+    // Elements
+    const quizGeneratorScreen = document.getElementById('quiz-generator-screen');
+    const closeQuizBtn = document.getElementById('close-quiz-btn');
+    const chatContainer = document.getElementById('chat-container');
+    
+    // Quiz source selection
+    const quizSourceSelection = document.getElementById('quiz-source-selection');
+    const chatSourceBtn = document.getElementById('chat-source-btn');
+    const syllabusSourceBtn = document.getElementById('syllabus-source-btn');
+    
+    // Chat source options
+    const chatSourceOptions = document.getElementById('chat-source-options');
+    const chatSourceBack = document.getElementById('chat-source-back');
+    const chatSessionSelect = document.getElementById('chat-session-select');
+    const chatQuestionCount = document.getElementById('chat-question-count');
+    const generateChatQuizBtn = document.getElementById('generate-chat-quiz-btn');
+    
+    // Syllabus source options
+    const syllabusSourceOptions = document.getElementById('syllabus-source-options');
+    const syllabusSourceBack = document.getElementById('syllabus-source-back');
+    const syllabusText = document.getElementById('syllabus-text');
+    const syllabusQuestionCount = document.getElementById('syllabus-question-count');
+    const generateSyllabusQuizBtn = document.getElementById('generate-syllabus-quiz-btn');
+    
+    // Quiz panels
+    const quizLoading = document.getElementById('quiz-loading');
+    const loadingMessage = document.getElementById('loading-message');
+    const quizQuestions = document.getElementById('quiz-questions');
+    const quizResults = document.getElementById('quiz-results');
+    const quizError = document.getElementById('quiz-error');
+    
+    // Quiz question elements
+    const currentQuestionNum = document.getElementById('current-question-num');
+    const totalQuestions = document.getElementById('total-questions');
+    const quizProgressFill = document.getElementById('quiz-progress-fill');
+    const quizQuestionText = document.getElementById('quiz-question-text');
+    const quizOptionsContainer = document.getElementById('quiz-options-container');
+    
+    // Quiz navigation
+    const quizPrevBtn = document.getElementById('quiz-prev-btn');
+    const quizNextBtn = document.getElementById('quiz-next-btn');
+    const quizSubmitBtn = document.getElementById('quiz-submit-btn');
+    
+    // Quiz results elements
+    const quizScoreText = document.getElementById('quiz-score-text');
+    const quizScorePercent = document.getElementById('quiz-score-percent');
+    const scoreMessage = document.getElementById('score-message');
+    const quizReviewList = document.getElementById('quiz-review-list');
+    const newQuizBtn = document.getElementById('new-quiz-btn');
+    const quizDiscussBtn = document.getElementById('quiz-discuss-btn');
+    
+    // Quiz error elements
+    const quizErrorMessage = document.getElementById('quiz-error-message');
+    const quizRetryBtn = document.getElementById('quiz-retry-btn');
+    
+    // Quiz state variables
+    let currentQuiz = null; // stores the current quiz data
+    let currentQuestionIndex = 0; // current question index
+    let userAnswers = []; // user's answers
+    let quizSource = 'chat'; // default source
+    
+    // Show the quiz generator screen
+    function showQuizGenerator() {
+        if (!quizGeneratorScreen) return;
+        
+        console.log("Showing enhanced Quiz Generator");
+        
+        // Hide chat container
+        chatContainer.style.display = 'none';
+        
+        // Show quiz generator screen
+        quizGeneratorScreen.style.display = 'block';
+        
+        // Show source selection by default
+        resetQuizState();
+        
+        // Load chat sessions for the dropdown
+        loadChatSessionsForQuiz();
+    }
+    
+    // Hide the quiz generator screen
+    function hideQuizGenerator() {
+        if (!quizGeneratorScreen) return;
+        
+        quizGeneratorScreen.style.display = 'none';
+        chatContainer.style.display = 'flex';
+    }
+    
+    // Reset quiz state and show source selection
+    function resetQuizState() {
+        // Reset quiz data
+        currentQuiz = null;
+        currentQuestionIndex = 0;
+        userAnswers = [];
+        
+        // Show source selection panel
+        quizSourceSelection.classList.remove('hidden');
+        chatSourceOptions.classList.add('hidden');
+        syllabusSourceOptions.classList.add('hidden');
+        quizLoading.classList.add('hidden');
+        quizQuestions.classList.add('hidden');
+        quizResults.classList.add('hidden');
+        quizError.classList.add('hidden');
+    }
+    
+    // Load chat sessions for the dropdown
+    function loadChatSessionsForQuiz() {
+        fetch('/api/sessions')
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to fetch sessions');
+                return response.json();
+            })
+            .then(data => {
+                // Clear dropdown except for the current session option
+                while (chatSessionSelect.options.length > 1) {
+                    chatSessionSelect.remove(1);
+                }
+                
+                // Add all sessions
+                if (data.sessions && data.sessions.length > 0) {
+                    data.sessions.forEach(session => {
+                        const option = document.createElement('option');
+                        option.value = session.session_id;
+                        option.textContent = session.name || 'Unnamed Chat';
+                        chatSessionSelect.appendChild(option);
+                    });
+                    
+                    // Set current session as selected
+                    if (currentSessionId) {
+                        chatSessionSelect.value = currentSessionId;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading chat sessions:', error);
+                showStatusMessage('error', 'Failed to load chat sessions');
+            });
+    }
+    
+    // Show chat source options
+    function showChatSourceOptions() {
+        quizSourceSelection.classList.add('hidden');
+        chatSourceOptions.classList.remove('hidden');
+        quizSource = 'chat';
+    }
+    
+    // Show syllabus source options
+    function showSyllabusSourceOptions() {
+        quizSourceSelection.classList.add('hidden');
+        syllabusSourceOptions.classList.remove('hidden');
+        quizSource = 'syllabus';
+    }
+    
+    // Generate quiz from chat history
+    function generateChatQuiz() {
+        const sessionId = chatSessionSelect.value;
+        const questionCount = parseInt(chatQuestionCount.value);
+        
+        if (!sessionId) {
+            showStatusMessage('error', 'Please select a chat session');
+            return;
+        }
+        
+        // Show loading panel
+        chatSourceOptions.classList.add('hidden');
+        quizLoading.classList.remove('hidden');
+        loadingMessage.textContent = 'Generating quiz based on your chat history...';
+        
+        // Clear previous quiz data
+        currentQuiz = null;
+        userAnswers = [];
+        
+        console.log(`Generating quiz from chat history, session: ${sessionId}, questions: ${questionCount}`);
+        
+        // Make API request to generate quiz
+        fetch(`/generate-quiz?session_id=${sessionId}&count=${questionCount}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to generate quiz');
+            return response.json();
+        })
+        .then(data => {
+            if (!data.questions || data.questions.length === 0) {
+                throw new Error('No quiz questions were generated');
+            }
+            
+            // Store quiz data
+            currentQuiz = data.questions;
+            userAnswers = new Array(currentQuiz.length).fill(null);
+            currentQuestionIndex = 0;
+            
+            // Show first question
+            showQuestion(0);
+            
+            // Hide loading, show questions
+            quizLoading.classList.add('hidden');
+            quizQuestions.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error generating quiz:', error);
+            quizLoading.classList.add('hidden');
+            quizError.classList.remove('hidden');
+            quizErrorMessage.textContent = error.message || 'Failed to generate quiz. Please try again.';
+        });
+    }
+    
+    // Generate quiz from syllabus text
+    function generateSyllabusQuiz() {
+        const text = syllabusText.value.trim();
+        const questionCount = parseInt(syllabusQuestionCount.value);
+        
+        if (!text) {
+            showStatusMessage('error', 'Please enter some syllabus text');
+            return;
+        }
+        
+        // Show loading panel
+        syllabusSourceOptions.classList.add('hidden');
+        quizLoading.classList.remove('hidden');
+        loadingMessage.textContent = 'Generating quiz based on your syllabus...';
+        
+        // Clear previous quiz data
+        currentQuiz = null;
+        userAnswers = [];
+        
+        console.log(`Generating quiz from syllabus, length: ${text.length}, questions: ${questionCount}`);
+        
+        // Make API request to generate quiz
+        fetch('/generate-syllabus-quiz', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                count: questionCount
+            })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to generate quiz');
+            return response.json();
+        })
+        .then(data => {
+            if (!data.questions || data.questions.length === 0) {
+                throw new Error('No quiz questions were generated');
+            }
+            
+            // Store quiz data
+            currentQuiz = data.questions;
+            userAnswers = new Array(currentQuiz.length).fill(null);
+            currentQuestionIndex = 0;
+            
+            // Show first question
+            showQuestion(0);
+            
+            // Hide loading, show questions
+            quizLoading.classList.add('hidden');
+            quizQuestions.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error generating quiz:', error);
+            quizLoading.classList.add('hidden');
+            quizError.classList.remove('hidden');
+            quizErrorMessage.textContent = error.message || 'Failed to generate quiz. Please try again.';
+        });
+    }
+    
+    // Show a specific question
+    function showQuestion(index) {
+        if (!currentQuiz || index < 0 || index >= currentQuiz.length) return;
+        
+        currentQuestionIndex = index;
+        const question = currentQuiz[index];
+        
+        // Update UI elements
+        currentQuestionNum.textContent = index + 1;
+        totalQuestions.textContent = currentQuiz.length;
+        quizProgressFill.style.width = `${((index + 1) / currentQuiz.length) * 100}%`;
+        quizQuestionText.textContent = question.question;
+        
+        // Generate options
+        quizOptionsContainer.innerHTML = '';
+        question.options.forEach((option, optionIndex) => {
+            const optionElement = document.createElement('div');
+            optionElement.className = 'quiz-option';
+            
+            const id = `option-${index}-${optionIndex}`;
+            const isChecked = userAnswers[index] === option ? 'checked' : '';
+            
+            optionElement.innerHTML = `
+                <input type="radio" id="${id}" name="question-${index}" value="${option}" ${isChecked}>
+                <label for="${id}">${option}</label>
+            `;
+            
+            // Add event listener to update answer when selected
+            const radioInput = optionElement.querySelector('input');
+            radioInput.addEventListener('change', () => {
+                userAnswers[currentQuestionIndex] = option;
+            });
+            
+            quizOptionsContainer.appendChild(optionElement);
+        });
+        
+        // Update navigation buttons
+        quizPrevBtn.disabled = index === 0;
+        
+        if (index === currentQuiz.length - 1) {
+            quizNextBtn.classList.add('hidden');
+            quizSubmitBtn.classList.remove('hidden');
+        } else {
+            quizNextBtn.classList.remove('hidden');
+            quizSubmitBtn.classList.add('hidden');
+        }
+    }
+    
+    // Show the next question
+    function showNextQuestion() {
+        if (currentQuestionIndex < currentQuiz.length - 1) {
+            showQuestion(currentQuestionIndex + 1);
+        }
+    }
+    
+    // Show the previous question
+    function showPreviousQuestion() {
+        if (currentQuestionIndex > 0) {
+            showQuestion(currentQuestionIndex - 1);
+        }
+    }
+    
+    // Submit the quiz and show results
+    function submitQuiz() {
+        if (!currentQuiz || currentQuiz.length === 0) return;
+        
+        // Calculate score
+        let correctCount = 0;
+        let unansweredCount = 0;
+        
+        currentQuiz.forEach((question, index) => {
+            if (userAnswers[index] === null) {
+                unansweredCount++;
+            } else if (userAnswers[index] === question.correct) {
+                correctCount++;
+            }
+        });
+        
+        const totalCount = currentQuiz.length;
+        const scorePercent = Math.round((correctCount / totalCount) * 100);
+        
+        // Update results UI
+        quizScoreText.textContent = `${correctCount}/${totalCount}`;
+        quizScorePercent.textContent = `${scorePercent}%`;
+        
+        // Set score message based on percentage
+        if (scorePercent >= 90) {
+            scoreMessage.textContent = 'Excellent! You have mastered this content!';
+        } else if (scorePercent >= 70) {
+            scoreMessage.textContent = 'Great job! You have a good understanding of the material.';
+        } else if (scorePercent >= 50) {
+            scoreMessage.textContent = 'Good effort! Keep studying to improve your score.';
+        } else {
+            scoreMessage.textContent = 'Keep practicing! You\'ll get better with more study.';
+        }
+        
+        // Generate review list
+        quizReviewList.innerHTML = '';
+        currentQuiz.forEach((question, index) => {
+            const userAnswer = userAnswers[index];
+            const isCorrect = userAnswer === question.correct;
+            const statusClass = userAnswer === null ? 'unanswered' : (isCorrect ? 'correct' : 'incorrect');
+            
+            const reviewItem = document.createElement('div');
+            reviewItem.className = `review-question ${statusClass}`;
+            
+            reviewItem.innerHTML = `
+                <p class="question-text">${index + 1}. ${question.question}</p>
+                <p class="correct-answer">Correct answer: <strong>${question.correct}</strong></p>
+            `;
+            
+            if (userAnswer === null) {
+                reviewItem.innerHTML += `<p class="user-answer">Your answer: <em>Not answered</em></p>`;
+            } else {
+                reviewItem.innerHTML += `<p class="user-answer">Your answer: <strong>${userAnswer}</strong></p>`;
+            }
+            
+            quizReviewList.appendChild(reviewItem);
+        });
+        
+        // Show results panel
+        quizQuestions.classList.add('hidden');
+        quizResults.classList.remove('hidden');
+    }
+    
+    // Start a new quiz
+    function startNewQuiz() {
+        resetQuizState();
+    }
+    
+    // Discuss quiz in chat
+    function discussQuizInChat() {
+        // Create a message summarizing the quiz results
+        let message = `I just took a quiz with ${currentQuiz.length} questions and scored ${quizScoreText.textContent} (${quizScorePercent.textContent}).\n\n`;
+        
+        // Add some questions that were answered incorrectly
+        const incorrectQuestions = currentQuiz.filter((q, i) => userAnswers[i] !== q.correct && userAnswers[i] !== null);
+        if (incorrectQuestions.length > 0) {
+            message += "I had trouble with these questions:\n";
+            incorrectQuestions.slice(0, 3).forEach((q, i) => {
+                message += `${i+1}. ${q.question}\n`;
+            });
+            message += "\nCan you help me understand these concepts better?";
+        } else {
+            message += "Can you explain some of these concepts in more detail or give me more advanced questions?";
+        }
+        
+        // Hide quiz generator and show chat
+        hideQuizGenerator();
+        
+        // Add message to input and focus
+        userInput.value = message;
+        userInput.focus();
+        
+        // Adjust height of textarea
+        if (typeof adjustInputHeight === 'function') {
+            adjustInputHeight();
+        }
+    }
+    
+    // Event listeners
+    if (closeQuizBtn) {
+        closeQuizBtn.addEventListener('click', hideQuizGenerator);
+    }
+    
+    if (chatSourceBtn) {
+        chatSourceBtn.addEventListener('click', showChatSourceOptions);
+    }
+    
+    if (syllabusSourceBtn) {
+        syllabusSourceBtn.addEventListener('click', showSyllabusSourceOptions);
+    }
+    
+    if (chatSourceBack) {
+        chatSourceBack.addEventListener('click', resetQuizState);
+    }
+    
+    if (syllabusSourceBack) {
+        syllabusSourceBack.addEventListener('click', resetQuizState);
+    }
+    
+    if (generateChatQuizBtn) {
+        generateChatQuizBtn.addEventListener('click', generateChatQuiz);
+    }
+    
+    if (generateSyllabusQuizBtn) {
+        generateSyllabusQuizBtn.addEventListener('click', generateSyllabusQuiz);
+    }
+    
+    if (quizPrevBtn) {
+        quizPrevBtn.addEventListener('click', showPreviousQuestion);
+    }
+    
+    if (quizNextBtn) {
+        quizNextBtn.addEventListener('click', showNextQuestion);
+    }
+    
+    if (quizSubmitBtn) {
+        quizSubmitBtn.addEventListener('click', submitQuiz);
+    }
+    
+    if (newQuizBtn) {
+        newQuizBtn.addEventListener('click', startNewQuiz);
+    }
+    
+    if (quizDiscussBtn) {
+        quizDiscussBtn.addEventListener('click', discussQuizInChat);
+    }
+    
+    if (quizRetryBtn) {
+        quizRetryBtn.addEventListener('click', () => {
+            quizError.classList.add('hidden');
+            if (quizSource === 'chat') {
+                chatSourceOptions.classList.remove('hidden');
+            } else {
+                syllabusSourceOptions.classList.remove('hidden');
+            }
+        });
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM loaded for enhanced Quiz Generator");
+    });
+    
+    // Return public interface
+    return {
+        show: showQuizGenerator,
+        hide: hideQuizGenerator,
+        reset: resetQuizState
+    };
+}
+
+// Direct fix for Quiz Generator button
+window.addEventListener('load', function() {
+    console.log("Applying enhanced Quiz Generator fix");
+    
+    // Get elements
+    const quizGeneratorBtn = document.getElementById('quiz-generator');
+    const chatContainer = document.getElementById('chat-container');
+    const quizGeneratorScreen = document.getElementById('quiz-generator-screen');
+    
+    // Initialize enhanced quiz generator
+    const enhancedQuizGenerator = initEnhancedQuizGenerator();
+    
+    // Add direct event handler to quiz generator button
+    if (quizGeneratorBtn) {
+        const newQuizBtn = quizGeneratorBtn.cloneNode(true);
+        quizGeneratorBtn.parentNode.replaceChild(newQuizBtn, quizGeneratorBtn);
+        
+        newQuizBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log("Quiz Generator button clicked (enhanced)");
+            
+            // Hide chat container
+            if (chatContainer) {
+                chatContainer.style.display = 'none';
+            }
+            
+            // Show quiz generator screen and initialize
+            if (quizGeneratorScreen) {
+                quizGeneratorScreen.style.display = 'block';
+                enhancedQuizGenerator.show();
+            }
+            
+            return false;
+        };
     }
 });

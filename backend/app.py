@@ -12,7 +12,7 @@ def create_app():
                 static_folder='../static')
     
     # Register blueprints
-    app.register_blueprint(routes)
+    app.register_blueprint(routes, url_prefix='')  # Add empty prefix to ensure routes work at root level
     
     # Add route for serving static files
     @app.route('/static/<path:path>')
@@ -34,7 +34,8 @@ if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run the SAHPAATHI Flask server')
     parser.add_argument('--port', type=int, default=5001, help='Port to run the server on')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='Host to run the server on')
     args = parser.parse_args()
     
     # Run the Flask app
-    app.run(debug=True, port=args.port)
+    app.run(debug=True, host=args.host, port=args.port)

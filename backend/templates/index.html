@@ -156,6 +156,183 @@
                 <div id="main-conversion-status" class="conversion-status hidden"></div>
             </div>
             
+            <!-- Quiz Generator Section (hidden by default) -->
+            <div class="quiz-container" id="quiz-generator-screen">
+                <div class="quiz-header">
+                    <h2><i class="fas fa-question-circle"></i> Quiz Generator</h2>
+                    <button id="close-quiz-btn" class="close-section-btn" title="Return to chat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="quiz-content">
+                    <div class="section-description">
+                        <p>Generate quiz questions to test your knowledge! Choose a source for your quiz questions below.</p>
+                    </div>
+                    
+                    <!-- Quiz Source Selection -->
+                    <div id="quiz-source-selection" class="quiz-panel">
+                        <h3>Choose Quiz Source</h3>
+                        <div class="quiz-source-options">
+                            <div class="quiz-source-card" id="chat-source-card">
+                                <div class="source-icon">
+                                    <i class="fas fa-comments"></i>
+                                </div>
+                                <h4>From Chat History</h4>
+                                <p>Generate questions based on your chat conversations</p>
+                                <button class="primary-button source-select-btn" id="chat-source-btn">Select</button>
+                            </div>
+                            
+                            <div class="quiz-source-card" id="syllabus-source-card">
+                                <div class="source-icon">
+                                    <i class="fas fa-book"></i>
+                                </div>
+                                <h4>From Syllabus</h4>
+                                <p>Generate questions from your syllabus or study materials</p>
+                                <button class="primary-button source-select-btn" id="syllabus-source-btn">Select</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Source Options -->
+                    <div id="chat-source-options" class="quiz-panel hidden">
+                        <div class="section-header">
+                            <h3><i class="fas fa-comments"></i> Quiz from Chat History</h3>
+                            <button class="back-btn" id="chat-source-back"><i class="fas fa-arrow-left"></i> Back</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="chat-session-select">Select Chat Session:</label>
+                            <select id="chat-session-select" class="themed-input">
+                                <!-- Chat sessions will be loaded dynamically -->
+                                <option value="current">Current Session</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="chat-question-count">Number of Questions:</label>
+                            <select id="chat-question-count" class="themed-input">
+                                <option value="5">5 Questions</option>
+                                <option value="10" selected>10 Questions</option>
+                                <option value="15">15 Questions</option>
+                                <option value="20">20 Questions</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button id="generate-chat-quiz-btn" class="primary-button">
+                                <i class="fas fa-magic"></i> Generate Quiz
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Syllabus Source Options -->
+                    <div id="syllabus-source-options" class="quiz-panel hidden">
+                        <div class="section-header">
+                            <h3><i class="fas fa-book"></i> Quiz from Syllabus</h3>
+                            <button class="back-btn" id="syllabus-source-back"><i class="fas fa-arrow-left"></i> Back</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="syllabus-text">Paste your syllabus or study material:</label>
+                            <textarea id="syllabus-text" class="themed-input" rows="10" placeholder="Paste your syllabus, lecture notes, or other study materials here..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="syllabus-question-count">Number of Questions:</label>
+                            <select id="syllabus-question-count" class="themed-input">
+                                <option value="5">5 Questions</option>
+                                <option value="10" selected>10 Questions</option>
+                                <option value="15">15 Questions</option>
+                                <option value="20">20 Questions</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button id="generate-syllabus-quiz-btn" class="primary-button">
+                                <i class="fas fa-magic"></i> Generate Quiz
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading Panel -->
+                    <div id="quiz-loading" class="quiz-panel hidden">
+                        <div class="quiz-loading-animation">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                        </div>
+                        <p id="loading-message">Generating your personalized quiz questions...</p>
+                    </div>
+                    
+                    <!-- Questions Panel -->
+                    <div id="quiz-questions" class="quiz-panel hidden">
+                        <div class="quiz-progress">
+                            <div class="quiz-progress-text">Question <span id="current-question-num">1</span> of <span id="total-questions">5</span></div>
+                            <div class="quiz-progress-bar">
+                                <div id="quiz-progress-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="quiz-question-display">
+                            <h3 id="quiz-question-text">Question text will appear here</h3>
+                            <div id="quiz-options-container" class="quiz-options">
+                                <!-- Quiz options will be added dynamically -->
+                            </div>
+                        </div>
+                        
+                        <div class="quiz-navigation">
+                            <button id="quiz-prev-btn" class="secondary-button" disabled>
+                                <i class="fas fa-arrow-left"></i> Previous
+                            </button>
+                            <button id="quiz-next-btn" class="primary-button">
+                                Next <i class="fas fa-arrow-right"></i>
+                            </button>
+                            <button id="quiz-submit-btn" class="success-button hidden">
+                                <i class="fas fa-check"></i> Submit Answers
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Panel -->
+                    <div id="quiz-results" class="quiz-panel hidden">
+                        <h3>Quiz Results</h3>
+                        <div class="quiz-score">
+                            <div class="score-circle">
+                                <span id="quiz-score-text">0/0</span>
+                            </div>
+                            <p>You scored <span id="quiz-score-percent">0%</span></p>
+                            <p id="score-message">Great job!</p>
+                        </div>
+                        
+                        <div id="quiz-review-container" class="quiz-review">
+                            <h4>Review Your Answers</h4>
+                            <div id="quiz-review-list">
+                                <!-- Review items will be added dynamically -->
+                            </div>
+                        </div>
+                        
+                        <div class="quiz-actions">
+                            <button id="new-quiz-btn" class="secondary-button">
+                                <i class="fas fa-redo"></i> New Quiz
+                            </button>
+                            <button id="quiz-discuss-btn" class="primary-button">
+                                <i class="fas fa-comments"></i> Discuss in Chat
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Panel -->
+                    <div id="quiz-error" class="quiz-panel hidden">
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <p id="quiz-error-message">Something went wrong while generating your quiz.</p>
+                        </div>
+                        <button id="quiz-retry-btn" class="primary-button">
+                            <i class="fas fa-redo"></i> Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Full-screen Teacher Mode Section (hidden by default) -->
             <div id="teacher-mode-screen" class="full-screen-section hidden">
                 <div class="section-header">
@@ -233,18 +410,57 @@
             <div class="sidebar-expanded">
                 <h3>Tools</h3>
                 <div class="tools-list">
-                    <div id="pdf-converter" class="tool-item" title="Convert to PDF">
-                        <i class="fas fa-file-pdf"></i>
-                        <span>Convert to PDF</span>
+                    <!-- Working tools section -->
+                    <div class="tools-section">
+                        <h4 class="tools-section-title">Available Tools</h4>
+                        <div id="text-to-pdf" class="tool-item" title="Text to PDF">
+                            <i class="fas fa-file-pdf"></i>
+                            <span>Text to PDF</span>
+                        </div>
+                        <div id="md-to-pdf" class="tool-item" title="MD to PDF Converter">
+                            <i class="fas fa-file-alt"></i>
+                            <span>MD to PDF</span>
+                        </div>
+                        <!-- Quiz Generator option in sidebar -->
+                        <div id="quiz-generator" class="tool-item" title="Quiz Generator">
+                            <i class="fas fa-question-circle"></i>
+                            <span>Quiz Generator</span>
+                        </div>
+                        <!-- Teacher Mode option in sidebar -->
+                        <div id="teacher-mode" class="tool-item" title="Teacher Mode">
+                            <i class="fas fa-user-graduate"></i>
+                            <span>Teacher Mode</span>
+                        </div>
                     </div>
-                    <div id="md-to-pdf" class="tool-item" title="MD to PDF Converter">
-                        <i class="fas fa-file-alt"></i>
-                        <span>MD to PDF</span>
-                    </div>
-                    <!-- Teacher Mode option in sidebar -->
-                    <div id="teacher-mode" class="tool-item" title="Teacher Mode">
-                        <i class="fas fa-user-graduate"></i>
-                        <span>Teacher Mode</span>
+                    
+                    <!-- Coming soon tools section -->
+                    <div class="tools-section">
+                        <h4 class="tools-section-title">Coming Soon</h4>
+                        <div id="practice-paper-generator" class="tool-item coming-soon" title="Practice Paper Generator - Coming Soon">
+                            <i class="fas fa-file-alt"></i>
+                            <span>Practice Paper Generator</span>
+                            <span class="coming-soon-badge">Soon</span>
+                        </div>
+                        <div id="notes-generator" class="tool-item coming-soon" title="Detailed Notes Generator - Coming Soon">
+                            <i class="fas fa-pen-fancy"></i>
+                            <span>Detailed Notes Generator</span>
+                            <span class="coming-soon-badge">Soon</span>
+                        </div>
+                        <div id="prompt-library" class="tool-item coming-soon" title="Prompt Library - Coming Soon">
+                            <i class="fas fa-book"></i>
+                            <span>Prompt Library</span>
+                            <span class="coming-soon-badge">Soon</span>
+                        </div>
+                        <div id="image-ocr" class="tool-item coming-soon" title="Image OCR Tool - Coming Soon">
+                            <i class="fas fa-camera"></i>
+                            <span>Image OCR Tool</span>
+                            <span class="coming-soon-badge">Soon</span>
+                        </div>
+                        <div id="vault-storage" class="tool-item coming-soon" title="Vault Storage - Coming Soon">
+                            <i class="fas fa-vault"></i>
+                            <span>Vault</span>
+                            <span class="coming-soon-badge">Soon</span>
+                        </div>
                     </div>
                 </div>
             </div>
