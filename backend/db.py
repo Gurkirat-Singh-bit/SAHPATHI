@@ -17,6 +17,7 @@ class ChatDatabase:
             self.db = self.client["sahpaathi"]
             self.chats = self.db["chats"]
             self.chat_sessions = self.db["chat_sessions"]  # New collection for chat sessions
+            self.teachers = self.db["teachers"] # New collection for teachers
             print("MongoDB connection successful")
             self.use_mongodb = True
         except Exception as e:
@@ -27,7 +28,120 @@ class ChatDatabase:
             self.current_session_id = str(uuid.uuid4())
             self.sessions = {}
             self.use_mongodb = False
-    
+            self._initialize_default_teachers()
+
+    def _initialize_default_teachers(self):
+        """Initialize default teachers if they don't exist."""
+        if self.use_mongodb:
+            try:
+                if self.teachers.count_documents({}) == 0:
+                    default_teachers = [
+                        {"teacher_id": str(uuid.uuid4()), "name": "General Assistant", "prompt": "You are a helpful general assistant.", "is_custom": False, "created_at": datetime.now(), "updated_at": datetime.now()},
+                        {"teacher_id": str(uuid.uuid4()), "name": "Math Tutor", "prompt": "You are an expert math tutor. Explain concepts clearly and help solve problems step-by-step.", "is_custom": False, "created_at": datetime.now(), "updated_at": datetime.now()},
+                        {"teacher_id": str(uuid.uuid4()), "name": "History Buff", "prompt": "You are a history enthusiast. Provide detailed historical context and answer questions about historical events and figures.", "is_custom": False, "created_at": datetime.now(), "updated_at": datetime.now()}
+                    ]
+                    self.teachers.insert_many(default_teachers)
+                    print("Initialized default teachers.")
+            except Exception as e:
+                print(f"Error initializing default teachers: {e}")
+        # In-memory default teachers can be handled if needed, but primary focus is MongoDB
+
+    def create_teacher(self, name, prompt, is_custom=True):
+        """Create a new teacher."""
+        teacher_id = str(uuid.uuid4())
+        teacher = {
+            'teacher_id': teacher_id,
+            'name': name,
+            'prompt': prompt,
+            'is_custom': is_custom,
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        if self.use_mongodb:
+            try:
+                self.teachers.insert_one(teacher)
+                print(f"Created new teacher: {name} ({teacher_id})")
+                return teacher_id
+            except Exception as e:
+                print(f"Error creating teacher: {e}")
+                return None
+        else:
+            # In-memory implementation (simplified)
+            if not hasattr(self, 'in_memory_teachers'):
+                self.in_memory_teachers = {}
+            self.in_memory_teachers[teacher_id] = teacher
+            print(f"Created new teacher (in-memory): {name} ({teacher_id})")
+            return teacher_id
+
+    def get_teacher(self, teacher_id):
+        """Get a specific teacher by ID."""
+        if self.use_mongodb:
+            try:
+                teacher = self.teachers.find_one({'teacher_id': teacher_id})
+                if teacher:
+                    teacher['_id'] = str(teacher['_id']) # Convert ObjectId
+                    teacher['created_at'] = teacher['created_at'].isoformat()
+                    teacher['updated_at'] = teacher['updated_at'].isoformat()
+                return teacher
+            except Exception as e:
+                print(f"Error getting teacher {teacher_id}: {e}")
+                return None
+        else:
+            return self.in_memory_teachers.get(teacher_id)
+
+    def get_all_teachers(self):
+        """Get all teachers."""
+        if self.use_mongodb:
+            try:
+                cursor = self.teachers.find({}).sort('name', 1)
+                teachers_list = []
+                for teacher in cursor:
+                    teacher['_id'] = str(teacher['_id'])
+                    teacher['created_at'] = teacher['created_at'].isoformat()
+                    teacher['updated_at'] = teacher['updated_at'].isoformat()
+                    teachers_list.append(teacher)
+                return teachers_list
+            except Exception as e:
+                print(f"Error getting all teachers: {e}")
+                return []
+        else:
+            return list(self.in_memory_teachers.values()) if hasattr(self, 'in_memory_teachers') else []
+
+    def update_teacher_prompt(self, teacher_id, prompt):
+        """Update a teacher's prompt."""
+        if self.use_mongodb:
+            try:
+                result = self.teachers.update_one(
+                    {'teacher_id': teacher_id},
+                    {'$set': {'prompt': prompt, 'updated_at': datetime.now()}}
+                )
+                return result.modified_count > 0
+            except Exception as e:
+                print(f"Error updating teacher {teacher_id}: {e}")
+                return False
+        else:
+            if hasattr(self, 'in_memory_teachers') and teacher_id in self.in_memory_teachers:
+                self.in_memory_teachers[teacher_id]['prompt'] = prompt
+                self.in_memory_teachers[teacher_id]['updated_at'] = datetime.now()
+                return True
+            return False
+
+    def delete_teacher(self, teacher_id):
+        """Delete a custom teacher."""
+        if self.use_mongodb:
+            try:
+                # Ensure we only delete custom teachers for safety, or allow deleting any if needed
+                result = self.teachers.delete_one({'teacher_id': teacher_id, 'is_custom': True})
+                return result.deleted_count > 0
+            except Exception as e:
+                print(f"Error deleting teacher {teacher_id}: {e}")
+                return False
+        else:
+            if hasattr(self, 'in_memory_teachers') and teacher_id in self.in_memory_teachers and self.in_memory_teachers[teacher_id]['is_custom']:
+                del self.in_memory_teachers[teacher_id]
+                return True
+            return False
+
     def create_new_session(self, name=None):
         """Create a new chat session and return its ID"""
         session_id = str(uuid.uuid4())

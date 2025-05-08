@@ -32,7 +32,12 @@
         <div class="main-content">
             <div class="header">
                 <h1>SAHPAATHI</h1>
-                <div class="theme-toggle-container">
+                <div class="header-controls">
+                    <!-- Teacher mode toggle button -->
+                    <button id="teacher-mode-btn" class="header-btn" title="Teacher Mode">
+                        <i class="fas fa-user-graduate"></i>
+                    </button>
+                    <!-- Theme toggle button -->
                     <button id="theme-toggle" class="theme-toggle" title="Toggle dark/light mode">
                         <i class="fas fa-moon"></i>
                     </button>
@@ -132,14 +137,14 @@
                         <button class="back-btn" id="text-converter-back"><i class="fas fa-arrow-left"></i> Back</button>
                     </div>
                     
-                    <div class="text-input-container">
+                    <div class="text-input-container themed-inputs">
                         <div class="form-group">
                             <label for="main-text-title">Document Title</label>
-                            <input type="text" id="main-text-title" placeholder="Enter document title" value="Document">
+                            <input type="text" id="main-text-title" placeholder="Enter document title" value="Document" class="themed-input">
                         </div>
                         <div class="form-group">
                             <label for="main-direct-text-input">Enter Text</label>
-                            <textarea id="main-direct-text-input" rows="8" placeholder="Type or paste your text here..."></textarea>
+                            <textarea id="main-direct-text-input" rows="8" placeholder="Type or paste your text here..." class="themed-input"></textarea>
                         </div>
                         <button id="main-convert-text-to-pdf-btn" class="tool-action-btn convert-btn">
                             <i class="fas fa-file-pdf"></i>
@@ -149,6 +154,72 @@
                 </div>
                 
                 <div id="main-conversion-status" class="conversion-status hidden"></div>
+            </div>
+            
+            <!-- Full-screen Teacher Mode Section (hidden by default) -->
+            <div id="teacher-mode-screen" class="full-screen-section hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-graduate"></i> Teacher Mode</h2>
+                    <button id="close-teacher-mode" class="close-section-btn" title="Close Teacher Mode">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="teacher-mode-content">
+                    <div class="section-description">
+                        <p>Select a teacher persona to help guide your learning experience. The AI assistant will adopt this teaching style when answering your questions.</p>
+                    </div>
+                    
+                    <div class="teacher-selection">
+                        <h3>Select Teacher</h3>
+                        <div id="teacher-grid" class="teacher-grid">
+                            <!-- Teacher cards will be populated dynamically from the database -->
+                        </div>
+                    </div>
+                    
+                    <!-- Custom teacher form section -->
+                    <div id="custom-teacher-section" class="custom-teacher-section hidden">
+                        <h3>Create Custom Teacher</h3>
+                        <div class="custom-teacher-form">
+                            <div class="form-group">
+                                <label for="custom-teacher-name">Teacher Name</label>
+                                <input type="text" id="custom-teacher-name" class="themed-input" placeholder="E.g., Physics Expert">
+                            </div>
+                            <div class="form-group">
+                                <label for="custom-teacher-prompt">Teacher Instructions</label>
+                                <textarea id="custom-teacher-prompt" rows="6" class="themed-input" 
+                                    placeholder="Provide detailed instructions for how this teacher should behave. For example: You are a Physics teacher who explains complex concepts using simple analogies and real-world examples."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button id="save-custom-teacher" class="primary-button">
+                                    <i class="fas fa-save"></i> Save Teacher
+                                </button>
+                                <button id="cancel-custom-teacher" class="secondary-button">
+                                    <i class="fas fa-times"></i> Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Active teacher status display -->
+                    <div id="active-teacher-display" class="active-teacher-display hidden">
+                        <h3>Current Active Teacher</h3>
+                        <div class="active-teacher-info">
+                            <div class="info-details">
+                                <h4>Teacher:</h4>
+                                <p id="active-teacher-name">None Selected</p>
+                            </div>
+                            <div class="active-teacher-controls">
+                                <button id="edit-active-teacher" class="secondary-button">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button id="deactivate-teacher" class="danger-button">
+                                    <i class="fas fa-power-off"></i> Deactivate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -162,60 +233,19 @@
             <div class="sidebar-expanded">
                 <h3>Tools</h3>
                 <div class="tools-list">
-                    <div id="pdf-converter" class="tool-item" title="Convert Markdown to PDF">
+                    <div id="pdf-converter" class="tool-item" title="Convert to PDF">
                         <i class="fas fa-file-pdf"></i>
+                        <span>Convert to PDF</span>
+                    </div>
+                    <div id="md-to-pdf" class="tool-item" title="MD to PDF Converter">
+                        <i class="fas fa-file-alt"></i>
                         <span>MD to PDF</span>
                     </div>
-                    <!-- More tools can be added here in the future -->
-                </div>
-                
-                <!-- PDF Converter Panel (hidden by default) -->
-                <div id="pdf-converter-panel" class="tool-panel hidden">
-                    <h4>Convert to PDF</h4>
-                    
-                    <!-- Tab navigation -->
-                    <div class="tab-navigation">
-                        <button id="file-upload-tab" class="tab-btn active">Upload File</button>
-                        <button id="text-input-tab" class="tab-btn">Enter Text</button>
+                    <!-- Teacher Mode option in sidebar -->
+                    <div id="teacher-mode" class="tool-item" title="Teacher Mode">
+                        <i class="fas fa-user-graduate"></i>
+                        <span>Teacher Mode</span>
                     </div>
-                    
-                    <!-- File upload tab content -->
-                    <div id="file-upload-content" class="tab-content">
-                        <div class="file-upload">
-                            <label for="md-file-input" class="file-upload-label">
-                                <i class="fas fa-upload"></i>
-                                <span>Choose a .md or .txt file</span>
-                            </label>
-                            <input type="file" id="md-file-input" accept=".md,.txt" class="file-input">
-                        </div>
-                        <div id="selected-file-info" class="selected-file-info hidden">
-                            <p id="selected-filename">No file selected</p>
-                        </div>
-                        <button id="convert-file-to-pdf-btn" class="tool-action-btn" disabled>
-                            <i class="fas fa-file-export"></i>
-                            Convert to PDF
-                        </button>
-                    </div>
-                    
-                    <!-- Text input tab content -->
-                    <div id="text-input-content" class="tab-content hidden">
-                        <div class="text-input-container">
-                            <div class="form-group">
-                                <label for="text-title">Document Title</label>
-                                <input type="text" id="text-title" placeholder="Enter document title" value="Document">
-                            </div>
-                            <div class="form-group">
-                                <label for="direct-text-input">Enter Text</label>
-                                <textarea id="direct-text-input" rows="8" placeholder="Type or paste your text here..."></textarea>
-                            </div>
-                            <button id="convert-text-to-pdf-btn" class="tool-action-btn">
-                                <i class="fas fa-file-export"></i>
-                                Convert to PDF
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="conversion-status" class="conversion-status hidden"></div>
                 </div>
             </div>
         </div>

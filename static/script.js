@@ -13,10 +13,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const logo = document.querySelector('.logo');
     const chatContainer = document.getElementById('chat-container');
     
+    // Teacher mode elements
+    const teacherModeBtn = document.getElementById('teacher-mode-btn');
+    const teacherModeOption = document.getElementById('teacher-mode'); // Option in sidebar
+    const teacherModeScreen = document.getElementById('teacher-mode-screen'); // Full screen section
+    const closeTeacherMode = document.getElementById('close-teacher-mode'); // Close button
+    const teacherCards = document.querySelectorAll('.teacher-card'); // Teacher cards in new UI
+    const customTeacherSection = document.getElementById('custom-teacher-section');
+    const customTeacherName = document.getElementById('custom-teacher-name');
+    const customTeacherPrompt = document.getElementById('custom-teacher-prompt');
+    const saveCustomTeacher = document.getElementById('save-custom-teacher');
+    const cancelCustomTeacher = document.getElementById('cancel-custom-teacher');
+    const activeTeacherDisplay = document.getElementById('active-teacher-display');
+    const activeTeacherName = document.getElementById('active-teacher-name');
+    const deactivateTeacher = document.getElementById('deactivate-teacher');
+    const editActiveTeacher = document.getElementById('edit-active-teacher');
+    const teacherDropdown = document.getElementById('teacher-dropdown'); // Added missing element
+    const teacherListContainer = document.getElementById('teacher-list-container'); // Added for list container
+    
     // Tools sidebar elements
     const toolsSidebar = document.querySelector('.tools-sidebar');
     const toolsToggle = document.getElementById('tools-toggle');
     const pdfConverter = document.getElementById('pdf-converter');
+    const mdToPdf = document.getElementById('md-to-pdf');
     
     // Main content PDF converter elements
     const mainPdfConverter = document.getElementById('main-pdf-converter');
@@ -47,7 +66,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSessionId = '';
     let firstUserQuestion = '';
     let currentChatName = '';
-    
+
+    // Teacher mode state
+    let allTeachers = [];
+    let currentActiveTeacher = null; // Stores the active teacher object { teacher_id, name, prompt, is_custom }
+    let isTeacherModeGloballyActive = false; // Tracks if the teacher mode is globally on/off by user choice
+
     // Store selected file data
     let mainSelectedFile = null;
 
@@ -68,40 +92,79 @@ document.addEventListener('DOMContentLoaded', function() {
     userInput.addEventListener('keypress', handleEnterKey);
     themeToggle.addEventListener('click', toggleTheme);
     newChatButton.addEventListener('click', startNewChat);
-    logo.addEventListener('click', toggleSidebar); // Change logo click to toggle sidebar
+    logo.addEventListener('click', toggleSidebar); 
 
     // Tools sidebar event listeners
     toolsToggle.addEventListener('click', toggleToolsSidebar);
     pdfConverter.addEventListener('click', showMainPdfConverterPanel); 
+    mdToPdf.addEventListener('click', () => {
+        // Show MD to PDF converter and expand sidebar if needed
+        showMainPdfConverterPanel();
+        if (!toolsSidebar.classList.contains('expanded')) {
+            toggleToolsSidebar();
+        }
+        // Add active class to the button
+        setActiveTool(mdToPdf);
+    });
     
-    // Main PDF converter event listeners
-    closeConverterBtn.addEventListener('click', closeMainPdfConverter);
-    fileConverterCard.addEventListener('click', () => showConverterSection('file'));
-    textConverterCard.addEventListener('click', () => showConverterSection('text'));
-    fileConverterBack.addEventListener('click', () => hideConverterSection('file'));
-    textConverterBack.addEventListener('click', () => hideConverterSection('text'));
+    // Teacher mode event listeners
+    if (teacherModeBtn) {
+        teacherModeBtn.addEventListener('click', toggleTeacherModeGlobalState);
+    }
     
-    // File upload handlers
-    mainMdFileInput.addEventListener('change', handleMainFileSelection);
-    removeFileBtn.addEventListener('click', removeSelectedFile);
-    mainConvertFileToPdfBtn.addEventListener('click', convertMainMdToPdf);
+    if (teacherModeOption) {
+        teacherModeOption.addEventListener('click', showTeacherModeScreen);
+    }
     
-    // Text conversion handlers
-    mainConvertTextToPdfBtn.addEventListener('click', convertMainTextToPdf);
+    if (closeTeacherMode) {
+        closeTeacherMode.addEventListener('click', hideTeacherModeScreen);
+    }
     
-    // Drag and drop functionality
-    setupDragAndDrop();
-
+    // Teacher card selection
+    if (teacherCards) {
+        teacherCards.forEach(card => {
+            card.addEventListener('click', (e) => {
+                const teacherId = card.getAttribute('data-teacher-id');
+                if (teacherId === 'custom') {
+                    showCustomTeacherForm();
+                } else {
+                    selectPredefinedTeacher(teacherId);
+                }
+            });
+        });
+    }
+    
+    // Custom teacher form buttons
+    if (saveCustomTeacher) {
+        saveCustomTeacher.addEventListener('click', saveCustomTeacherHandler);
+    }
+    
+    if (cancelCustomTeacher) {
+        cancelCustomTeacher.addEventListener('click', hideCustomTeacherForm);
+    }
+    
+    // Teacher mode controls
+    if (deactivateTeacher) {
+        deactivateTeacher.addEventListener('click', deactivateCurrentTeacher);
+    }
+    
+    if (editActiveTeacher) {
+        editActiveTeacher.addEventListener('click', editActiveTeacherHandler);
+    }
+    
     // Auto-adjust input height
     userInput.addEventListener('input', adjustInputHeight);
 
-    // Initialize - fetch chat sessions
+    // Initialize - fetch chat sessions and teacher mode
     initializeApplication();
+    initializeTeacherMode();
 
     // Functions
     
     // Setup drag and drop functionality
     function setupDragAndDrop() {
+        if (!dropZone) return;
+        
         // Prevent default behavior (browser opening the file)
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
@@ -194,38 +257,62 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function hideConverterOptions() {
-        document.querySelector('.converter-options').style.display = 'none';
+        const converterOptions = document.querySelector('.converter-options');
+        if (converterOptions) {
+            converterOptions.style.display = 'none';
+        }
     }
     
     function showConverterOptions() {
-        document.querySelector('.converter-options').style.display = 'flex';
-        mainConversionStatus.classList.add('hidden');
+        const converterOptions = document.querySelector('.converter-options');
+        if (converterOptions) {
+            converterOptions.style.display = 'flex';
+        }
+        if (mainConversionStatus) {
+            mainConversionStatus.classList.add('hidden');
+        }
     }
     
     // Show main content PDF converter and hide chat
     function showMainPdfConverterPanel() {
+        if (!mainPdfConverter || !chatContainer) return;
+        
         chatContainer.style.display = 'none';
         mainPdfConverter.classList.add('visible');
         
         // Reset any previous conversion status
-        mainConversionStatus.classList.add('hidden');
+        if (mainConversionStatus) {
+            mainConversionStatus.classList.add('hidden');
+        }
         
         // Show converter options, hide specific sections
         showConverterOptions();
-        fileConverterSection.classList.add('hidden');
-        textConverterSection.classList.add('hidden');
+        if (fileConverterSection) {
+            fileConverterSection.classList.add('hidden');
+        }
+        if (textConverterSection) {
+            textConverterSection.classList.add('hidden');
+        }
     }
     
     // Close main PDF converter and show chat
     function closeMainPdfConverter() {
+        if (!mainPdfConverter || !chatContainer) return;
+        
         mainPdfConverter.classList.remove('visible');
         chatContainer.style.display = 'flex';
         
         // Reset all sections
         showConverterOptions();
-        fileConverterSection.classList.add('hidden');
-        textConverterSection.classList.add('hidden');
-        mainConversionStatus.classList.add('hidden');
+        if (fileConverterSection) {
+            fileConverterSection.classList.add('hidden');
+        }
+        if (textConverterSection) {
+            textConverterSection.classList.add('hidden');
+        }
+        if (mainConversionStatus) {
+            mainConversionStatus.classList.add('hidden');
+        }
     }
     
     // Handle file selection
@@ -368,6 +455,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show conversion status message in main converter
     function showMainConversionStatus(type, message, isHtml = true) {
+        if (!mainConversionStatus) return;
+        
         mainConversionStatus.classList.remove('hidden', 'success', 'error');
         
         if (type) {
@@ -477,11 +566,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             toolsToggle.classList.remove('animate__animated', 'animate__rubberBand');
         }, 800);
-        
-        // Hide tool panels when collapsing sidebar
-        if (!toolsSidebar.classList.contains('expanded')) {
-            pdfConverterPanel.classList.add('hidden');
-        }
     }
     
     // Handle sending message
@@ -593,6 +677,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show typing indicator
         const typingIndicator = showTypingIndicator();
         
+        let finalMessage = message;
+        if (isTeacherModeGloballyActive && currentActiveTeacher && currentActiveTeacher.prompt) {
+            finalMessage = `System Prompt (Follow these instructions for your persona): ${currentActiveTeacher.prompt}\\n\\nUser question: ${message}`;
+            console.log("Using teacher prompt for:", currentActiveTeacher.name);
+        }
+
         try {
             console.log("Sending message to API for session:", currentSessionId);
             
@@ -603,7 +693,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    prompt: message,
+                    prompt: finalMessage, // Use finalMessage
                     session_id: currentSessionId
                 }),
             });
@@ -874,6 +964,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.sessions.forEach((session) => {
                         const chatItem = document.createElement('div');
                         chatItem.classList.add('chat-history-item');
+                        chatItem.setAttribute('data-session-id', session.session_id);
                         
                         // Highlight the current session
                         if (session.session_id === currentSessionId) {
@@ -947,5 +1038,589 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+    }
+
+    // Set active tool in the tools sidebar
+    function setActiveTool(toolElement) {
+        const toolItems = document.querySelectorAll('.tool-item');
+        toolItems.forEach(item => item.classList.remove('active'));
+        if (toolElement) {
+            toolElement.classList.add('active');
+        }
+    }
+
+    // Teacher Mode Functions
+    
+    // Initialize Teacher Mode
+    async function initializeTeacherMode() {
+        await fetchAllTeachers();
+        loadPersistedTeacherState();
+        
+        // Check if Teacher Mode screen exists, if not, create it
+        if (!teacherModeScreen) {
+            createTeacherModeScreen();
+        }
+        
+        updateTeacherModeButtonState();
+    }
+    
+    // Create Teacher Mode Screen if it doesn't exist
+    function createTeacherModeScreen() {
+        const fullScreenSection = document.createElement('div');
+        fullScreenSection.id = 'teacher-mode-screen';
+        fullScreenSection.className = 'full-screen-section';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'section-header';
+        header.innerHTML = `
+            <h2><i class="fas fa-user-graduate"></i> Teacher Mode</h2>
+            <button id="close-teacher-mode" class="close-section-btn"><i class="fas fa-times"></i></button>
+        `;
+        
+        // Create description
+        const description = document.createElement('div');
+        description.className = 'section-description';
+        description.innerHTML = `
+            <p>Select a teacher persona to help guide your learning experience. Your AI assistant will adopt
+            this teaching style when answering your questions.</p>
+        `;
+        
+        // Create content container
+        const content = document.createElement('div');
+        content.className = 'teacher-mode-content';
+        
+        // Create teacher selection area
+        const teacherSelection = document.createElement('div');
+        teacherSelection.className = 'teacher-selection';
+        teacherSelection.innerHTML = `<h3>Select a Teacher</h3>`;
+        
+        // Create teacher grid
+        const teacherGrid = document.createElement('div');
+        teacherGrid.className = 'teacher-grid';
+        teacherGrid.id = 'teacher-grid';
+        teacherSelection.appendChild(teacherGrid);
+        
+        // Create custom teacher section
+        const customTeacherSection = document.createElement('div');
+        customTeacherSection.id = 'custom-teacher-section';
+        customTeacherSection.className = 'custom-teacher-section hidden';
+        customTeacherSection.innerHTML = `
+            <h3>Create Custom Teacher</h3>
+            <div class="custom-teacher-form">
+                <div class="form-group">
+                    <label for="custom-teacher-name">Teacher Name:</label>
+                    <input type="text" id="custom-teacher-name" class="themed-input" placeholder="E.g., Physics Expert">
+                </div>
+                <div class="form-group">
+                    <label for="custom-teacher-prompt">Teacher Instructions:</label>
+                    <textarea id="custom-teacher-prompt" class="themed-input" rows="6" 
+                    placeholder="Describe how this teacher should respond. For example: You are a Physics teacher who explains complex concepts using simple analogies and real-world examples. You focus on helping students understand the fundamental principles rather than memorizing formulas."></textarea>
+                </div>
+                <div class="form-actions">
+                    <button id="save-custom-teacher" class="primary-button"><i class="fas fa-save"></i> Save Teacher</button>
+                    <button id="cancel-custom-teacher" class="secondary-button"><i class="fas fa-times"></i> Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        // Create active teacher display
+        const activeTeacherDisplay = document.createElement('div');
+        activeTeacherDisplay.id = 'active-teacher-display';
+        activeTeacherDisplay.className = 'active-teacher-display hidden';
+        activeTeacherDisplay.innerHTML = `
+            <h3>Current Active Teacher</h3>
+            <div class="active-teacher-info">
+                <div class="info-details">
+                    <h4>Teacher:</h4>
+                    <p id="active-teacher-name">None Selected</p>
+                </div>
+                <div class="active-teacher-controls">
+                    <button id="edit-active-teacher" class="secondary-button"><i class="fas fa-edit"></i> Edit</button>
+                    <button id="deactivate-teacher" class="danger-button"><i class="fas fa-power-off"></i> Deactivate</button>
+                </div>
+            </div>
+        `;
+        
+        // Assemble the content
+        content.appendChild(teacherSelection);
+        content.appendChild(customTeacherSection);
+        content.appendChild(activeTeacherDisplay);
+        
+        // Assemble the screen
+        fullScreenSection.appendChild(header);
+        fullScreenSection.appendChild(description);
+        fullScreenSection.appendChild(content);
+        
+        // Add to document
+        document.body.appendChild(fullScreenSection);
+        
+        // Set global variables for the newly created elements
+        teacherModeScreen = fullScreenSection;
+        closeTeacherMode = document.getElementById('close-teacher-mode');
+        customTeacherSection = document.getElementById('custom-teacher-section');
+        customTeacherName = document.getElementById('custom-teacher-name');
+        customTeacherPrompt = document.getElementById('custom-teacher-prompt');
+        saveCustomTeacher = document.getElementById('save-custom-teacher');
+        cancelCustomTeacher = document.getElementById('cancel-custom-teacher');
+        activeTeacherDisplay = document.getElementById('active-teacher-display');
+        activeTeacherName = document.getElementById('active-teacher-name');
+        deactivateTeacher = document.getElementById('deactivate-teacher');
+        editActiveTeacher = document.getElementById('edit-active-teacher');
+        
+        // Add event listeners
+        closeTeacherMode.addEventListener('click', hideTeacherModeScreen);
+        saveCustomTeacher.addEventListener('click', saveCustomTeacherHandler);
+        cancelCustomTeacher.addEventListener('click', hideCustomTeacherForm);
+        deactivateTeacher.addEventListener('click', deactivateCurrentTeacher);
+        editActiveTeacher.addEventListener('click', editActiveTeacherHandler);
+        
+        // Return the screen for further use
+        return fullScreenSection;
+    }
+    
+    // Fetch all teachers from the server
+    async function fetchAllTeachers() {
+        try {
+            const response = await fetch('/api/teachers');
+            if (!response.ok) {
+                throw new Error('Failed to fetch teachers');
+            }
+            
+            const data = await response.json();
+            allTeachers = data.teachers || [];
+            console.log("Fetched teachers:", allTeachers.length);
+            
+            // Render teachers in the UI
+            renderTeacherGrid();
+            
+            return allTeachers;
+        } catch (error) {
+            console.error("Error fetching teachers:", error);
+            showStatusMessage('error', 'Could not load teachers.');
+            return [];
+        }
+    }
+    
+    // Render the teacher grid with all available teachers
+    function renderTeacherGrid() {
+        const teacherGrid = document.getElementById('teacher-grid');
+        if (!teacherGrid) return;
+        
+        teacherGrid.innerHTML = '';
+        
+        // Add default teachers first
+        allTeachers.filter(teacher => !teacher.is_custom).forEach(teacher => {
+            const card = createTeacherCard(teacher);
+            teacherGrid.appendChild(card);
+        });
+        
+        // Add custom teachers
+        allTeachers.filter(teacher => teacher.is_custom).forEach(teacher => {
+            const card = createTeacherCard(teacher);
+            teacherGrid.appendChild(card);
+        });
+        
+        // Add card to create new custom teacher
+        const createCard = document.createElement('div');
+        createCard.className = 'teacher-card';
+        createCard.dataset.teacherId = 'custom';
+        createCard.innerHTML = `
+            <div class="teacher-icon">
+                <i class="fas fa-plus"></i>
+            </div>
+            <span>Create Custom</span>
+        `;
+        createCard.addEventListener('click', showCustomTeacherForm);
+        teacherGrid.appendChild(createCard);
+    }
+    
+    // Create a teacher card for the grid
+    function createTeacherCard(teacher) {
+        const card = document.createElement('div');
+        card.className = 'teacher-card';
+        
+        // Add active class if this is the current active teacher
+        if (currentActiveTeacher && currentActiveTeacher.teacher_id === teacher.teacher_id && isTeacherModeGloballyActive) {
+            card.classList.add('active');
+        }
+        
+        card.dataset.teacherId = teacher.teacher_id;
+        
+        // Determine icon based on teacher name or type
+        let icon = 'user-graduate';
+        if (teacher.name.toLowerCase().includes('math')) icon = 'calculator';
+        else if (teacher.name.toLowerCase().includes('science')) icon = 'flask';
+        else if (teacher.name.toLowerCase().includes('computer')) icon = 'laptop-code';
+        else if (teacher.name.toLowerCase().includes('english')) icon = 'book';
+        else if (teacher.name.toLowerCase().includes('history')) icon = 'landmark';
+        else if (teacher.name.toLowerCase().includes('art')) icon = 'palette';
+        else if (teacher.name.toLowerCase().includes('music')) icon = 'music';
+        else if (teacher.name.toLowerCase().includes('physical')) icon = 'running';
+        
+        card.innerHTML = `
+            <div class="teacher-icon">
+                <i class="fas fa-${icon}"></i>
+            </div>
+            <span>${teacher.name}</span>
+        `;
+        
+        // Add click event to select this teacher
+        card.addEventListener('click', () => selectTeacher(teacher));
+        
+        return card;
+    }
+    
+    // Show the Teacher Mode screen
+    function showTeacherModeScreen() {
+        if (!teacherModeScreen) {
+            createTeacherModeScreen();
+        }
+        
+        // Refresh teachers list
+        fetchAllTeachers();
+        
+        // Show the screen
+        teacherModeScreen.classList.add('visible');
+        
+        // Update display of active teacher if needed
+        updateActiveTeacherDisplay();
+    }
+    
+    // Hide the Teacher Mode screen
+    function hideTeacherModeScreen() {
+        if (!teacherModeScreen) return;
+        
+        teacherModeScreen.classList.remove('visible');
+        
+        // Also hide custom teacher form if it's open
+        hideCustomTeacherForm();
+    }
+    
+    // Show the custom teacher form
+    function showCustomTeacherForm() {
+        if (!customTeacherSection) return;
+        
+        // Clear form fields
+        customTeacherName.value = '';
+        customTeacherPrompt.value = '';
+        customTeacherName.disabled = false;
+        
+        // Update button text
+        saveCustomTeacher.innerHTML = '<i class="fas fa-save"></i> Save Teacher';
+        saveCustomTeacher.dataset.mode = 'create';
+        
+        // Show the form
+        customTeacherSection.classList.remove('hidden');
+        
+        // Focus on the name field
+        customTeacherName.focus();
+    }
+    
+    // Hide the custom teacher form
+    function hideCustomTeacherForm() {
+        if (!customTeacherSection) return;
+        
+        customTeacherSection.classList.add('hidden');
+    }
+    
+    // Edit an existing teacher
+    function editActiveTeacherHandler() {
+        if (!currentActiveTeacher || !customTeacherSection) return;
+        
+        // Fill form with current teacher data
+        customTeacherName.value = currentActiveTeacher.name;
+        customTeacherPrompt.value = currentActiveTeacher.prompt;
+        
+        // Disable name field for default teachers
+        customTeacherName.disabled = !currentActiveTeacher.is_custom;
+        
+        // Update button text
+        saveCustomTeacher.innerHTML = '<i class="fas fa-save"></i> Update Teacher';
+        saveCustomTeacher.dataset.mode = 'update';
+        saveCustomTeacher.dataset.teacherId = currentActiveTeacher.teacher_id;
+        
+        // Show the form
+        customTeacherSection.classList.remove('hidden');
+        
+        // Focus on the prompt field
+        customTeacherPrompt.focus();
+    }
+    
+    // Save a new custom teacher or update an existing one
+    async function saveCustomTeacherHandler() {
+        const name = customTeacherName.value.trim();
+        const prompt = customTeacherPrompt.value.trim();
+        
+        if (!name || !prompt) {
+            showStatusMessage('error', 'Name and prompt are required.');
+            return;
+        }
+        
+        const mode = saveCustomTeacher.dataset.mode || 'create';
+        
+        try {
+            let response;
+            
+            if (mode === 'create') {
+                // Create new teacher
+                response = await fetch('/api/teachers', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, prompt })
+                });
+            } else if (mode === 'update') {
+                // Update existing teacher
+                const teacherId = saveCustomTeacher.dataset.teacherId;
+                if (!teacherId) {
+                    showStatusMessage('error', 'Teacher ID is missing.');
+                    return;
+                }
+                
+                const payload = { prompt };
+                if (customTeacherName.disabled === false) {
+                    payload.name = name;
+                }
+                
+                response = await fetch(`/api/teachers/${teacherId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save teacher');
+            }
+            
+            // Refresh teacher list
+            await fetchAllTeachers();
+            
+            // Hide the form
+            hideCustomTeacherForm();
+            
+            // Show success message
+            showStatusMessage('success', mode === 'create' ? 'Teacher created successfully!' : 'Teacher updated successfully!');
+            
+            // If we updated the current active teacher, refresh it
+            if (mode === 'update' && currentActiveTeacher && currentActiveTeacher.teacher_id === saveCustomTeacher.dataset.teacherId) {
+                // Find the updated teacher in the list
+                const updatedTeacher = allTeachers.find(t => t.teacher_id === currentActiveTeacher.teacher_id);
+                if (updatedTeacher) {
+                    currentActiveTeacher = updatedTeacher;
+                    updateActiveTeacherDisplay();
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error saving teacher:', error);
+            showStatusMessage('error', error.message || 'Failed to save teacher.');
+        }
+    }
+    
+    // Select a teacher and activate teacher mode
+    function selectTeacher(teacher) {
+        currentActiveTeacher = teacher;
+        isTeacherModeGloballyActive = true;
+        
+        // Update UI to show selected teacher
+        updateActiveTeacherDisplay();
+        
+        // Save to localStorage
+        localStorage.setItem('activeTeacherId', teacher.teacher_id);
+        localStorage.setItem('isTeacherModeGloballyActive', 'true');
+        
+        // Update teacher button in header
+        updateTeacherModeButtonState();
+        
+        // Show success message
+        showStatusMessage('success', `${teacher.name} mode activated!`);
+        
+        // Update teacher cards highlighting
+        renderTeacherGrid();
+    }
+    
+    // Deactivate the current teacher
+    function deactivateCurrentTeacher() {
+        if (!currentActiveTeacher) return;
+        
+        const previousTeacherName = currentActiveTeacher.name;
+        
+        currentActiveTeacher = null;
+        isTeacherModeGloballyActive = false;
+        
+        // Update UI
+        updateActiveTeacherDisplay();
+        
+        // Remove from localStorage
+        localStorage.removeItem('activeTeacherId');
+        localStorage.setItem('isTeacherModeGloballyActive', 'false');
+        
+        // Update teacher button in header
+        updateTeacherModeButtonState();
+        
+        // Show message
+        showStatusMessage('info', `${previousTeacherName} mode deactivated.`);
+        
+        // Update teacher cards highlighting
+        renderTeacherGrid();
+    }
+    
+    // Update the active teacher display
+    function updateActiveTeacherDisplay() {
+        if (!activeTeacherDisplay || !activeTeacherName) return;
+        
+        if (isTeacherModeGloballyActive && currentActiveTeacher) {
+            activeTeacherName.textContent = currentActiveTeacher.name;
+            activeTeacherDisplay.classList.remove('hidden');
+        } else {
+            activeTeacherDisplay.classList.add('hidden');
+        }
+    }
+    
+    // Toggle teacher mode globally (from the header button)
+    function toggleTeacherModeGlobalState() {
+        if (!teacherModeBtn) return;
+        
+        if (!currentActiveTeacher) {
+            // If no teacher is selected, show the teacher mode screen
+            showTeacherModeScreen();
+            return;
+        }
+        
+        // Toggle teacher mode state
+        isTeacherModeGloballyActive = !isTeacherModeGloballyActive;
+        
+        // Save state to localStorage
+        localStorage.setItem('isTeacherModeGloballyActive', isTeacherModeGloballyActive.toString());
+        
+        // Update button state
+        updateTeacherModeButtonState();
+        
+        // Show status message
+        if (isTeacherModeGloballyActive) {
+            showStatusMessage('success', `${currentActiveTeacher.name} mode activated!`);
+        } else {
+            showStatusMessage('info', `Teacher mode deactivated.`);
+        }
+        
+        // Update teacher cards highlighting
+        renderTeacherGrid();
+    }
+    
+    // Update the teacher mode button state in the header
+    function updateTeacherModeButtonState() {
+        if (!teacherModeBtn) return;
+        
+        // Update button appearance
+        if (isTeacherModeGloballyActive && currentActiveTeacher) {
+            teacherModeBtn.classList.add('tutor-active');
+            teacherModeBtn.title = `${currentActiveTeacher.name} mode active (click to toggle)`;
+        } else {
+            teacherModeBtn.classList.remove('tutor-active');
+            teacherModeBtn.title = 'Teacher Mode (click to activate)';
+        }
+    }
+    
+    // Load persisted teacher state from localStorage
+    function loadPersistedTeacherState() {
+        const savedTeacherId = localStorage.getItem('activeTeacherId');
+        const savedModeState = localStorage.getItem('isTeacherModeGloballyActive') === 'true';
+        
+        if (savedTeacherId && allTeachers.length > 0) {
+            const teacher = allTeachers.find(t => t.teacher_id === savedTeacherId);
+            if (teacher) {
+                currentActiveTeacher = teacher;
+                isTeacherModeGloballyActive = savedModeState;
+            } else {
+                // Teacher not found, reset state
+                isTeacherModeGloballyActive = false;
+                localStorage.removeItem('activeTeacherId');
+            }
+        } else {
+            isTeacherModeGloballyActive = false;
+        }
+        
+        // Update UI
+        updateTeacherModeButtonState();
+        updateActiveTeacherDisplay();
+    }
+    
+    // Show a status message that disappears after a few seconds
+    function showStatusMessage(type, message) {
+        const statusDiv = document.createElement('div');
+        statusDiv.classList.add('status-message', `status-${type}`, 'animate__animated', 'animate__fadeIn');
+        statusDiv.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
+        
+        document.body.appendChild(statusDiv);
+        
+        // Position it at the top center
+        statusDiv.style.position = 'fixed';
+        statusDiv.style.top = '20px';
+        statusDiv.style.left = '50%';
+        statusDiv.style.transform = 'translateX(-50%)';
+        statusDiv.style.zIndex = '9999';
+        statusDiv.style.padding = '10px 20px';
+        statusDiv.style.borderRadius = '5px';
+        statusDiv.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            statusDiv.classList.remove('animate__fadeIn');
+            statusDiv.classList.add('animate__fadeOut');
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    document.body.removeChild(statusDiv);
+                }
+            }, 500);
+        }, 2500);
+    }
+    
+    // If we have drag and drop capability, set it up
+    if (dropZone) {
+        setupDragAndDrop();
+    }
+    
+    // If we have file input, set up listener
+    if (mainMdFileInput) {
+        mainMdFileInput.addEventListener('change', handleMainFileSelection);
+    }
+    
+    // If we have convert buttons, set up listeners
+    if (mainConvertFileToPdfBtn) {
+        mainConvertFileToPdfBtn.addEventListener('click', convertMainMdToPdf);
+    }
+    
+    if (mainConvertTextToPdfBtn) {
+        mainConvertTextToPdfBtn.addEventListener('click', convertMainTextToPdf);
+    }
+    
+    // If we have converter option cards, set up listeners
+    if (fileConverterCard) {
+        fileConverterCard.addEventListener('click', () => showConverterSection('file'));
+    }
+    
+    if (textConverterCard) {
+        textConverterCard.addEventListener('click', () => showConverterSection('text'));
+    }
+    
+    // If we have converter back buttons, set up listeners
+    if (fileConverterBack) {
+        fileConverterBack.addEventListener('click', hideConverterSection);
+    }
+    
+    if (textConverterBack) {
+        textConverterBack.addEventListener('click', hideConverterSection);
+    }
+    
+    // If we have close converter button, set up listener
+    if (closeConverterBtn) {
+        closeConverterBtn.addEventListener('click', closeMainPdfConverter);
+    }
+    
+    // If we have remove file button, set up listener
+    if (removeFileBtn) {
+        removeFileBtn.addEventListener('click', removeSelectedFile);
     }
 });

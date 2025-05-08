@@ -336,6 +336,56 @@ def clear_history():
         'success': True
     })
 
+# Teacher Management Routes
+@routes.route('/api/teachers', methods=['GET'])
+def get_teachers():
+    """Get all teachers."""
+    teachers = db.get_all_teachers()
+    return jsonify({'teachers': teachers})
+
+@routes.route('/api/teachers', methods=['POST'])
+def create_teacher():
+    """Create a new custom teacher."""
+    data = request.json
+    name = data.get('name')
+    prompt = data.get('prompt')
+    if not name or not prompt:
+        return jsonify({'error': 'Name and prompt are required'}), 400
+    teacher_id = db.create_teacher(name, prompt, is_custom=True)
+    if teacher_id:
+        return jsonify({'success': True, 'teacher_id': teacher_id, 'message': 'Teacher created successfully'}), 201
+    else:
+        return jsonify({'error': 'Failed to create teacher'}), 500
+
+@routes.route('/api/teachers/<teacher_id>', methods=['PUT'])
+def update_teacher(teacher_id):
+    """Update a teacher's prompt."""
+    data = request.json
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({'error': 'Prompt is required'}), 400
+    success = db.update_teacher_prompt(teacher_id, prompt)
+    if success:
+        return jsonify({'success': True, 'message': 'Teacher updated successfully'})
+    else:
+        return jsonify({'error': 'Failed to update teacher or teacher not found'}), 404
+
+@routes.route('/api/teachers/<teacher_id>', methods=['DELETE'])
+def delete_teacher(teacher_id):
+    """Delete a custom teacher."""
+    # Potentially add more checks here, e.g., ensure it is a custom teacher
+    teacher = db.get_teacher(teacher_id)
+    if not teacher:
+        return jsonify({'error': 'Teacher not found'}), 404
+    if not teacher.get('is_custom'):
+        return jsonify({'error': 'Cannot delete a default teacher'}), 403
+
+    success = db.delete_teacher(teacher_id)
+    if success:
+        return jsonify({'success': True, 'message': 'Teacher deleted successfully'})
+    else:
+        return jsonify({'error': 'Failed to delete teacher'}), 500
+
 # Add route to serve files from uploads directory
 @routes.route('/uploads/<path:filename>')
 def uploaded_file(filename):
