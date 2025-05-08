@@ -57,6 +57,99 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Main content PDF converter -->
+            <div class="pdf-converter-container" id="main-pdf-converter">
+                <div class="pdf-converter-header">
+                    <h2>Convert to PDF</h2>
+                    <button id="close-converter-btn" class="close-converter-btn" title="Return to chat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="converter-options">
+                    <div class="converter-option-card" id="file-converter-card">
+                        <div class="converter-option-icon">
+                            <i class="fas fa-file-upload"></i>
+                        </div>
+                        <h3>Convert File to PDF</h3>
+                        <p>Upload a Markdown (.md) or Text (.txt) file</p>
+                        <button class="converter-select-btn">Select</button>
+                    </div>
+                    
+                    <div class="converter-option-card" id="text-converter-card">
+                        <div class="converter-option-icon">
+                            <i class="fas fa-keyboard"></i>
+                        </div>
+                        <h3>Convert Text to PDF</h3>
+                        <p>Type or paste your text directly</p>
+                        <button class="converter-select-btn">Select</button>
+                    </div>
+                </div>
+                
+                <!-- File upload converter section -->
+                <div id="file-converter-section" class="converter-section hidden">
+                    <div class="section-header">
+                        <h3><i class="fas fa-file-upload"></i> Convert File to PDF</h3>
+                        <button class="back-btn" id="file-converter-back"><i class="fas fa-arrow-left"></i> Back</button>
+                    </div>
+                    
+                    <div class="file-upload-area" id="drag-drop-area">
+                        <input type="file" id="main-md-file-input" accept=".md,.txt" class="file-input">
+                        <div class="drop-zone">
+                            <div class="drop-zone-prompt">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Drag & drop your file here or</p>
+                                <label for="main-md-file-input" class="file-select-button">Choose file</label>
+                            </div>
+                            <div class="drop-zone-thumb hidden"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="main-selected-file-info" class="selected-file-info hidden">
+                        <div class="file-preview">
+                            <i class="fas fa-file-alt file-icon"></i>
+                            <div class="file-details">
+                                <p id="main-selected-filename">No file selected</p>
+                                <span id="main-selected-filesize"></span>
+                            </div>
+                            <button id="remove-file-btn" class="remove-file-btn" title="Remove file">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <button id="main-convert-file-to-pdf-btn" class="tool-action-btn convert-btn" disabled>
+                        <i class="fas fa-file-pdf"></i>
+                        Convert to PDF
+                    </button>
+                </div>
+                
+                <!-- Text input converter section -->
+                <div id="text-converter-section" class="converter-section hidden">
+                    <div class="section-header">
+                        <h3><i class="fas fa-keyboard"></i> Convert Text to PDF</h3>
+                        <button class="back-btn" id="text-converter-back"><i class="fas fa-arrow-left"></i> Back</button>
+                    </div>
+                    
+                    <div class="text-input-container">
+                        <div class="form-group">
+                            <label for="main-text-title">Document Title</label>
+                            <input type="text" id="main-text-title" placeholder="Enter document title" value="Document">
+                        </div>
+                        <div class="form-group">
+                            <label for="main-direct-text-input">Enter Text</label>
+                            <textarea id="main-direct-text-input" rows="8" placeholder="Type or paste your text here..."></textarea>
+                        </div>
+                        <button id="main-convert-text-to-pdf-btn" class="tool-action-btn convert-btn">
+                            <i class="fas fa-file-pdf"></i>
+                            Convert to PDF
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="main-conversion-status" class="conversion-status hidden"></div>
+            </div>
         </div>
         
         <!-- Right sidebar with tools -->

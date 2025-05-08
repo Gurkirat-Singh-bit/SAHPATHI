@@ -85,3 +85,5 @@ mongodb/
 # Windows specific
 Thumbs.db
 ehthumbs.db/uploads/
+
+uploads

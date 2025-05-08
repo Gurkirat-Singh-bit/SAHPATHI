@@ -11,26 +11,37 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatHistoryList = document.getElementById('chat-history-list');
     const body = document.body;
     const logo = document.querySelector('.logo');
+    const chatContainer = document.getElementById('chat-container');
     
     // Tools sidebar elements
     const toolsSidebar = document.querySelector('.tools-sidebar');
     const toolsToggle = document.getElementById('tools-toggle');
     const pdfConverter = document.getElementById('pdf-converter');
-    const pdfConverterPanel = document.getElementById('pdf-converter-panel');
-    const mdFileInput = document.getElementById('md-file-input');
-    const selectedFileInfo = document.getElementById('selected-file-info');
-    const selectedFilename = document.getElementById('selected-filename');
-    const convertFileToPdfBtn = document.getElementById('convert-file-to-pdf-btn');
-    const convertTextToPdfBtn = document.getElementById('convert-text-to-pdf-btn');
-    const conversionStatus = document.getElementById('conversion-status');
     
-    // Tab elements
-    const fileUploadTab = document.getElementById('file-upload-tab');
-    const textInputTab = document.getElementById('text-input-tab');
-    const fileUploadContent = document.getElementById('file-upload-content');
-    const textInputContent = document.getElementById('text-input-content');
-    const textTitle = document.getElementById('text-title');
-    const directTextInput = document.getElementById('direct-text-input');
+    // Main content PDF converter elements
+    const mainPdfConverter = document.getElementById('main-pdf-converter');
+    const closeConverterBtn = document.getElementById('close-converter-btn');
+    const fileConverterCard = document.getElementById('file-converter-card');
+    const textConverterCard = document.getElementById('text-converter-card');
+    const fileConverterSection = document.getElementById('file-converter-section');
+    const textConverterSection = document.getElementById('text-converter-section');
+    const fileConverterBack = document.getElementById('file-converter-back');
+    const textConverterBack = document.getElementById('text-converter-back');
+    
+    // File upload elements
+    const mainMdFileInput = document.getElementById('main-md-file-input');
+    const dropZone = document.querySelector('.drop-zone');
+    const mainSelectedFileInfo = document.getElementById('main-selected-file-info');
+    const mainSelectedFilename = document.getElementById('main-selected-filename');
+    const mainSelectedFilesize = document.getElementById('main-selected-filesize');
+    const removeFileBtn = document.getElementById('remove-file-btn');
+    const mainConvertFileToPdfBtn = document.getElementById('main-convert-file-to-pdf-btn');
+    
+    // Text input elements
+    const mainTextTitle = document.getElementById('main-text-title');
+    const mainDirectTextInput = document.getElementById('main-direct-text-input');
+    const mainConvertTextToPdfBtn = document.getElementById('main-convert-text-to-pdf-btn');
+    const mainConversionStatus = document.getElementById('main-conversion-status');
     
     // Store the current session information
     let currentSessionId = '';
@@ -38,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentChatName = '';
     
     // Store selected file data
-    let selectedFile = null;
+    let mainSelectedFile = null;
 
     // Set initial focus on input
     userInput.focus();
@@ -61,14 +72,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Tools sidebar event listeners
     toolsToggle.addEventListener('click', toggleToolsSidebar);
-    pdfConverter.addEventListener('click', showPdfConverterPanel);
-    mdFileInput.addEventListener('change', handleFileSelection);
-    convertFileToPdfBtn.addEventListener('click', convertMdToPdf);
-    convertTextToPdfBtn.addEventListener('click', convertTextToPdf);
+    pdfConverter.addEventListener('click', showMainPdfConverterPanel); 
     
-    // Tab navigation listeners
-    fileUploadTab.addEventListener('click', () => switchTab('file'));
-    textInputTab.addEventListener('click', () => switchTab('text'));
+    // Main PDF converter event listeners
+    closeConverterBtn.addEventListener('click', closeMainPdfConverter);
+    fileConverterCard.addEventListener('click', () => showConverterSection('file'));
+    textConverterCard.addEventListener('click', () => showConverterSection('text'));
+    fileConverterBack.addEventListener('click', () => hideConverterSection('file'));
+    textConverterBack.addEventListener('click', () => hideConverterSection('text'));
+    
+    // File upload handlers
+    mainMdFileInput.addEventListener('change', handleMainFileSelection);
+    removeFileBtn.addEventListener('click', removeSelectedFile);
+    mainConvertFileToPdfBtn.addEventListener('click', convertMainMdToPdf);
+    
+    // Text conversion handlers
+    mainConvertTextToPdfBtn.addEventListener('click', convertMainTextToPdf);
+    
+    // Drag and drop functionality
+    setupDragAndDrop();
 
     // Auto-adjust input height
     userInput.addEventListener('input', adjustInputHeight);
@@ -78,38 +100,223 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Functions
     
-    // Switch between tabs
-    function switchTab(tabName) {
-        if (tabName === 'file') {
-            fileUploadTab.classList.add('active');
-            textInputTab.classList.remove('active');
-            fileUploadContent.classList.remove('hidden');
-            textInputContent.classList.add('hidden');
-        } else {
-            fileUploadTab.classList.remove('active');
-            textInputTab.classList.add('active');
-            fileUploadContent.classList.add('hidden');
-            textInputContent.classList.remove('hidden');
-        }
+    // Setup drag and drop functionality
+    function setupDragAndDrop() {
+        // Prevent default behavior (browser opening the file)
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
         
-        // Clear any previous conversion status
-        conversionStatus.classList.add('hidden');
+        // Visual feedback for drag events
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('drag-over');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('drag-over');
+            }, false);
+        });
+        
+        // Handle the drop event
+        dropZone.addEventListener('drop', handleDrop, false);
     }
     
-    // Convert text directly to PDF
-    async function convertTextToPdf() {
-        const text = directTextInput.value.trim();
-        const title = textTitle.value.trim() || 'Document';
+    // Prevent default browser behavior for drag events
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Handle the file drop event
+    function handleDrop(e) {
+        const file = e.dataTransfer.files[0];
+        if (file && (file.name.endsWith('.md') || file.name.endsWith('.txt'))) {
+            processFile(file);
+        } else {
+            showMainConversionStatus('error', 'Please upload a .md or .txt file');
+        }
+    }
+    
+    // Process the selected or dropped file
+    function processFile(file) {
+        mainSelectedFile = file;
+        mainSelectedFileInfo.classList.remove('hidden');
+        mainSelectedFilename.textContent = file.name;
+        
+        // Show file size in KB or MB
+        let fileSize = file.size / 1024; // KB
+        let fileSizeStr = "";
+        
+        if (fileSize >= 1024) {
+            fileSize = fileSize / 1024; // MB
+            fileSizeStr = fileSize.toFixed(2) + " MB";
+        } else {
+            fileSizeStr = fileSize.toFixed(2) + " KB";
+        }
+        
+        mainSelectedFilesize.textContent = fileSizeStr;
+        mainConvertFileToPdfBtn.disabled = false;
+        
+        // Clear any previous status messages
+        mainConversionStatus.classList.add('hidden');
+    }
+    
+    // Remove the selected file
+    function removeSelectedFile() {
+        mainSelectedFile = null;
+        mainSelectedFileInfo.classList.add('hidden');
+        mainConvertFileToPdfBtn.disabled = true;
+        mainMdFileInput.value = '';
+    }
+    
+    // Show or hide converter sections based on user selection
+    function showConverterSection(type) {
+        if (type === 'file') {
+            hideConverterOptions();
+            fileConverterSection.classList.remove('hidden');
+            fileConverterSection.classList.add('active');
+        } else {
+            hideConverterOptions();
+            textConverterSection.classList.remove('hidden');
+            textConverterSection.classList.add('active');
+        }
+    }
+    
+    function hideConverterSection() {
+        fileConverterSection.classList.add('hidden');
+        fileConverterSection.classList.remove('active');
+        textConverterSection.classList.add('hidden');
+        textConverterSection.classList.remove('active');
+        showConverterOptions();
+    }
+    
+    function hideConverterOptions() {
+        document.querySelector('.converter-options').style.display = 'none';
+    }
+    
+    function showConverterOptions() {
+        document.querySelector('.converter-options').style.display = 'flex';
+        mainConversionStatus.classList.add('hidden');
+    }
+    
+    // Show main content PDF converter and hide chat
+    function showMainPdfConverterPanel() {
+        chatContainer.style.display = 'none';
+        mainPdfConverter.classList.add('visible');
+        
+        // Reset any previous conversion status
+        mainConversionStatus.classList.add('hidden');
+        
+        // Show converter options, hide specific sections
+        showConverterOptions();
+        fileConverterSection.classList.add('hidden');
+        textConverterSection.classList.add('hidden');
+    }
+    
+    // Close main PDF converter and show chat
+    function closeMainPdfConverter() {
+        mainPdfConverter.classList.remove('visible');
+        chatContainer.style.display = 'flex';
+        
+        // Reset all sections
+        showConverterOptions();
+        fileConverterSection.classList.add('hidden');
+        textConverterSection.classList.add('hidden');
+        mainConversionStatus.classList.add('hidden');
+    }
+    
+    // Handle file selection
+    function handleMainFileSelection(event) {
+        const file = event.target.files[0];
+        
+        if (file) {
+            processFile(file);
+        }
+    }
+    
+    // Convert Markdown to PDF from main converter
+    async function convertMainMdToPdf() {
+        if (!mainSelectedFile) {
+            showMainConversionStatus('error', 'No file selected');
+            return;
+        }
+        
+        // Reset status
+        showMainConversionStatus('', 'Converting file...', false);
+        
+        // Create FormData instance
+        const formData = new FormData();
+        formData.append('file', mainSelectedFile);
+        
+        try {
+            // Show loading animation
+            mainConvertFileToPdfBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Converting...';
+            mainConvertFileToPdfBtn.disabled = true;
+            
+            // Send request to server
+            const response = await fetch('/api/convert-md-to-pdf', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Conversion failed');
+            }
+            
+            // Get the PDF file from response
+            const data = await response.json();
+            
+            if (data.pdf_url) {
+                // Show success message with download link
+                showMainConversionStatus(
+                    'success', 
+                    `<i class="fas fa-check-circle"></i> Conversion successful!<br><a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
+                );
+                
+                // Automatically trigger download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.pdf_url;
+                downloadLink.download = mainSelectedFile.name.replace('.md', '.pdf').replace('.txt', '.pdf');
+                downloadLink.click();
+                
+                // Reset the button
+                mainConvertFileToPdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
+                mainConvertFileToPdfBtn.disabled = false;
+            } else {
+                throw new Error('No PDF URL returned');
+            }
+        } catch (error) {
+            console.error('Conversion error:', error);
+            showMainConversionStatus('error', `<i class="fas fa-exclamation-circle"></i> Conversion failed: ${error.message}`);
+            
+            // Reset the button
+            mainConvertFileToPdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
+            mainConvertFileToPdfBtn.disabled = false;
+        }
+    }
+    
+    // Convert text directly to PDF from main converter
+    async function convertMainTextToPdf() {
+        const text = mainDirectTextInput.value.trim();
+        const title = mainTextTitle.value.trim() || 'Document';
         
         if (!text) {
-            showConversionStatus('error', 'Please enter some text to convert');
+            showMainConversionStatus('error', '<i class="fas fa-exclamation-circle"></i> Please enter some text to convert');
             return;
         }
         
         // Show processing status
-        showConversionStatus('', 'Converting text to PDF...', false);
+        showMainConversionStatus('', 'Converting text to PDF...', false);
         
         try {
+            // Show loading animation
+            mainConvertTextToPdfBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Converting...';
+            mainConvertTextToPdfBtn.disabled = true;
+            
             // Send request to server
             const response = await fetch('/api/convert-text-to-pdf', {
                 method: 'POST',
@@ -132,9 +339,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.pdf_url) {
                 // Show success message with download link
-                showConversionStatus(
+                showMainConversionStatus(
                     'success', 
-                    `Conversion successful! <a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
+                    `<i class="fas fa-check-circle"></i> Conversion successful!<br><a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
                 );
                 
                 // Automatically trigger download
@@ -142,12 +349,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 downloadLink.href = data.pdf_url;
                 downloadLink.download = `${title}.pdf`;
                 downloadLink.click();
+                
+                // Reset the button
+                mainConvertTextToPdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
+                mainConvertTextToPdfBtn.disabled = false;
             } else {
                 throw new Error('No PDF URL returned');
             }
         } catch (error) {
             console.error('Text to PDF conversion error:', error);
-            showConversionStatus('error', `Conversion failed: ${error.message}`);
+            showMainConversionStatus('error', `<i class="fas fa-exclamation-circle"></i> Conversion failed: ${error.message}`);
+            
+            // Reset the button
+            mainConvertTextToPdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i> Convert to PDF';
+            mainConvertTextToPdfBtn.disabled = false;
+        }
+    }
+    
+    // Show conversion status message in main converter
+    function showMainConversionStatus(type, message, isHtml = true) {
+        mainConversionStatus.classList.remove('hidden', 'success', 'error');
+        
+        if (type) {
+            mainConversionStatus.classList.add(type);
+        }
+        
+        if (isHtml) {
+            mainConversionStatus.innerHTML = message;
+        } else {
+            mainConversionStatus.textContent = message;
         }
     }
 
@@ -254,202 +484,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Show PDF converter panel
-    function showPdfConverterPanel() {
-        // Hide any other tool panels here (when you add more tools)
-        
-        // Show PDF converter panel
-        pdfConverterPanel.classList.remove('hidden');
-        
-        // Make sure sidebar is expanded
-        if (!toolsSidebar.classList.contains('expanded')) {
-            toggleToolsSidebar();
-        }
-        
-        // Default to file upload tab
-        switchTab('file');
-    }
-    
-    // Handle file selection
-    function handleFileSelection(event) {
-        const file = event.target.files[0];
-        
-        if (file) {
-            selectedFile = file;
-            selectedFileInfo.classList.remove('hidden');
-            selectedFilename.textContent = file.name;
-            convertFileToPdfBtn.disabled = false;
-            
-            console.log("File selected:", file.name);
-        } else {
-            selectedFile = null;
-            selectedFileInfo.classList.add('hidden');
-            convertFileToPdfBtn.disabled = true;
-        }
-    }
-    
-    // Convert Markdown to PDF
-    async function convertMdToPdf() {
-        if (!selectedFile) {
-            showConversionStatus('error', 'No file selected');
-            return;
-        }
-        
-        // Reset status
-        showConversionStatus('', 'Converting file...', false);
-        
-        // Create FormData instance
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        
-        try {
-            // Send request to server
-            const response = await fetch('/api/convert-md-to-pdf', {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Conversion failed');
-            }
-            
-            // Get the PDF file from response
-            const data = await response.json();
-            
-            if (data.pdf_url) {
-                // Show success message with download link
-                showConversionStatus(
-                    'success', 
-                    `Conversion successful! <a href="${data.pdf_url}" download target="_blank">Download PDF</a>`
-                );
-                
-                // Automatically trigger download
-                const downloadLink = document.createElement('a');
-                downloadLink.href = data.pdf_url;
-                downloadLink.download = selectedFile.name.replace('.md', '.pdf').replace('.txt', '.pdf');
-                downloadLink.click();
-            } else {
-                throw new Error('No PDF URL returned');
-            }
-        } catch (error) {
-            console.error('Conversion error:', error);
-            showConversionStatus('error', `Conversion failed: ${error.message}`);
-        }
-    }
-    
-    // Show conversion status message
-    function showConversionStatus(type, message, isHtml = true) {
-        conversionStatus.classList.remove('hidden', 'success', 'error');
-        
-        if (type) {
-            conversionStatus.classList.add(type);
-        }
-        
-        if (isHtml) {
-            conversionStatus.innerHTML = message;
-        } else {
-            conversionStatus.textContent = message;
-        }
-    }
-    
-    // Load chat sessions for sidebar with improved error handling
-    function loadChatSessionsForSidebar() {
-        console.log("Loading chat sessions for sidebar...");
-        fetch('/api/sessions')
-            .then(response => {
-                if (!response.ok) {
-                    console.error("Network response was not ok:", response.status);
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Clear existing chat history items
-                chatHistoryList.innerHTML = '';
-                
-                console.log("Chat sessions loaded:", data.sessions ? data.sessions.length : 0);
-                
-                if (data.sessions && data.sessions.length > 0) {
-                    // Create chat history items for each session
-                    data.sessions.forEach((session) => {
-                        const chatItem = document.createElement('div');
-                        chatItem.classList.add('chat-history-item');
-                        
-                        // Highlight the current session
-                        if (session.session_id === currentSessionId) {
-                            chatItem.classList.add('active-session');
-                        }
-                        
-                        chatItem.innerHTML = `
-                            <i class="fas fa-comment-dots"></i>
-                            <span>${session.name}</span>
-                        `;
-                        
-                        // Add click event to load this chat session
-                        chatItem.addEventListener('click', () => {
-                            loadSession(session.session_id);
-                        });
-                        
-                        chatHistoryList.appendChild(chatItem);
-                    });
-                } else {
-                    // Show a message if no chat sessions
-                    console.log("No chat sessions found");
-                    const noHistoryItem = document.createElement('div');
-                    noHistoryItem.classList.add('chat-history-item');
-                    noHistoryItem.innerHTML = `
-                        <i class="fas fa-info-circle"></i>
-                        <span>No chat history yet</span>
-                    `;
-                    chatHistoryList.appendChild(noHistoryItem);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading chat sessions for sidebar:', error);
-                
-                // Show error in sidebar
-                const errorItem = document.createElement('div');
-                errorItem.classList.add('chat-history-item');
-                errorItem.innerHTML = `
-                    <i class="fas fa-exclamation-circle"></i>
-                    <span>Failed to load sessions</span>
-                `;
-                chatHistoryList.appendChild(errorItem);
-            });
-    }
-    
-    // Load a specific chat session
-    async function loadSession(sessionId) {
-        console.log("Loading session:", sessionId);
-        
-        if (sessionId === currentSessionId) {
-            console.log("Already in this session, no need to reload");
-            return;
-        }
-        
-        // Clear the current chat UI
-        clearChatUI();
-        
-        // Set the new session as current
-        currentSessionId = sessionId;
-        firstUserQuestion = '';
-        
-        // Load this session's chat history
-        loadChatHistory(sessionId);
-        
-        // Update sidebar to highlight the current session
-        if (sidebar.classList.contains('expanded')) {
-            const chatItems = document.querySelectorAll('.chat-history-item');
-            chatItems.forEach(item => {
-                item.classList.remove('active-session');
-                if (item.getAttribute('data-session-id') === sessionId) {
-                    item.classList.add('active-session');
-                }
-            });
-        }
-    }
-
     // Handle sending message
     function handleSendMessage() {
         const message = userInput.value.trim();
@@ -816,5 +850,102 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading chat history:', error);
                 showErrorMessage("Sorry, I couldn't load the chat history.");
             });
+    }
+    
+    // Load chat sessions for sidebar with improved error handling
+    function loadChatSessionsForSidebar() {
+        console.log("Loading chat sessions for sidebar...");
+        fetch('/api/sessions')
+            .then(response => {
+                if (!response.ok) {
+                    console.error("Network response was not ok:", response.status);
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Clear existing chat history items
+                chatHistoryList.innerHTML = '';
+                
+                console.log("Chat sessions loaded:", data.sessions ? data.sessions.length : 0);
+                
+                if (data.sessions && data.sessions.length > 0) {
+                    // Create chat history items for each session
+                    data.sessions.forEach((session) => {
+                        const chatItem = document.createElement('div');
+                        chatItem.classList.add('chat-history-item');
+                        
+                        // Highlight the current session
+                        if (session.session_id === currentSessionId) {
+                            chatItem.classList.add('active-session');
+                        }
+                        
+                        chatItem.innerHTML = `
+                            <i class="fas fa-comment-dots"></i>
+                            <span>${session.name}</span>
+                        `;
+                        
+                        // Add click event to load this chat session
+                        chatItem.addEventListener('click', () => {
+                            loadSession(session.session_id);
+                        });
+                        
+                        chatHistoryList.appendChild(chatItem);
+                    });
+                } else {
+                    // Show a message if no chat sessions
+                    console.log("No chat sessions found");
+                    const noHistoryItem = document.createElement('div');
+                    noHistoryItem.classList.add('chat-history-item');
+                    noHistoryItem.innerHTML = `
+                        <i class="fas fa-info-circle"></i>
+                        <span>No chat history yet</span>
+                    `;
+                    chatHistoryList.appendChild(noHistoryItem);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading chat sessions for sidebar:', error);
+                
+                // Show error in sidebar
+                const errorItem = document.createElement('div');
+                errorItem.classList.add('chat-history-item');
+                errorItem.innerHTML = `
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>Failed to load sessions</span>
+                `;
+                chatHistoryList.appendChild(errorItem);
+            });
+    }
+    
+    // Load a specific chat session
+    async function loadSession(sessionId) {
+        console.log("Loading session:", sessionId);
+        
+        if (sessionId === currentSessionId) {
+            console.log("Already in this session, no need to reload");
+            return;
+        }
+        
+        // Clear the current chat UI
+        clearChatUI();
+        
+        // Set the new session as current
+        currentSessionId = sessionId;
+        firstUserQuestion = '';
+        
+        // Load this session's chat history
+        loadChatHistory(sessionId);
+        
+        // Update sidebar to highlight the current session
+        if (sidebar.classList.contains('expanded')) {
+            const chatItems = document.querySelectorAll('.chat-history-item');
+            chatItems.forEach(item => {
+                item.classList.remove('active-session');
+                if (item.getAttribute('data-session-id') === sessionId) {
+                    item.classList.add('active-session');
+                }
+            });
+        }
     }
 });
