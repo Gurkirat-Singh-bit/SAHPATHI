@@ -20,9 +20,11 @@ genai.configure(api_key=api_key)
 # Try to read instruction file if it exists
 instruction = "You are SAHPAATHI, an AI assistant designed to help students with their studies."
 try:
-    with open("instruction.txt", "r") as f:  # Changed from "backend/instruction.txt" to "instruction.txt"
+    # Use the correct relative path to instruction.txt
+    instruction_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instruction.txt")
+    with open(instruction_path, "r") as f:
         instruction = f.read()
-        logger.info("Loaded instructions from instruction.txt")
+        logger.info(f"Loaded instructions from {instruction_path}")
 except FileNotFoundError:
     logger.info("Using default instructions (instruction.txt not found)")
 
