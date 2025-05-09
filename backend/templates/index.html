@@ -398,6 +398,132 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Prompt Library Section (hidden by default) -->
+            <div id="prompt-library-screen" class="full-screen-section tool-modal hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-book"></i> Prompt Library</h2>
+                    <button id="close-prompt-library" class="close-section-btn" title="Return to chat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="section-description">
+                    <p>Access pre-defined prompts or save your own custom prompts for quick reuse.</p>
+                </div>
+                
+                <div class="prompt-library-content">
+                    <div class="tab-navigation">
+                        <button id="default-prompts-tab" class="tab-btn active">Default Prompts</button>
+                        <button id="my-prompts-tab" class="tab-btn">My Prompts</button>
+                    </div>
+                    
+                    <!-- Default Prompts Tab -->
+                    <div id="default-prompts-content" class="tab-content">
+                        <div class="prompt-cards">
+                            <!-- Default prompt cards will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- My Prompts Tab -->
+                    <div id="my-prompts-content" class="tab-content hidden">
+                        <div class="prompt-cards" id="custom-prompts-container">
+                            <!-- Custom prompt cards will be populated here -->
+                        </div>
+                        
+                        <div class="empty-prompts-message" id="empty-prompts-message">
+                            <i class="fas fa-info-circle"></i>
+                            <p>You haven't saved any custom prompts yet.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Prompt Section -->
+                    <div class="add-prompt-section">
+                        <h3>Add New Prompt</h3>
+                        <div class="form-group">
+                            <label for="prompt-title">Prompt Title</label>
+                            <input type="text" id="prompt-title" class="themed-input" placeholder="Give your prompt a descriptive title">
+                        </div>
+                        <div class="form-group">
+                            <label for="prompt-text">Prompt Text</label>
+                            <textarea id="prompt-text" class="themed-input" rows="5" placeholder="Write your prompt here..."></textarea>
+                        </div>
+                        <button id="save-prompt-btn" class="primary-button">
+                            <i class="fas fa-save"></i> Save Prompt
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Previous Year Paper Generator Section (hidden by default) -->
+            <div id="paper-generator-screen" class="full-screen-section tool-modal hidden">
+                <div class="section-header">
+                    <h2><i class="fas fa-file-alt"></i> Mock Question Paper Generator</h2>
+                    <button id="close-paper-generator" class="close-section-btn" title="Return to chat">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="section-description">
+                    <p>Generate practice papers based on your syllabus or course structure.</p>
+                </div>
+                
+                <div class="paper-generator-content">
+                    <div class="form-group">
+                        <label for="syllabus-content">Paste Your Syllabus or Course Structure</label>
+                        <textarea id="syllabus-content" class="themed-input" rows="10" placeholder="Paste your syllabus, course structure, or topics here..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="paper-options">Paper Options</label>
+                        <div class="paper-options">
+                            <div class="option-item">
+                                <label for="question-count">Number of Questions:</label>
+                                <select id="question-count" class="themed-input">
+                                    <option value="5">5 Questions</option>
+                                    <option value="10" selected>10 Questions</option>
+                                    <option value="15">15 Questions</option>
+                                    <option value="20">20 Questions</option>
+                                </select>
+                            </div>
+                            
+                            <div class="option-item">
+                                <label for="difficulty-level">Difficulty Level:</label>
+                                <select id="difficulty-level" class="themed-input">
+                                    <option value="easy">Easy</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="hard">Hard</option>
+                                    <option value="mixed">Mixed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button id="generate-paper-btn" class="primary-button">
+                            <i class="fas fa-magic"></i> Generate PDF
+                        </button>
+                    </div>
+                    
+                    <!-- Loading Indicator -->
+                    <div id="paper-loading" class="loading-indicator hidden">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                        <span>Generating your paper...</span>
+                    </div>
+                    
+                    <!-- Result Section -->
+                    <div id="paper-result" class="result-section hidden">
+                        <div class="success-message">
+                            <i class="fas fa-check-circle"></i>
+                            <h3>Paper Generated Successfully!</h3>
+                        </div>
+                        
+                        <button id="download-paper-btn" class="success-button">
+                            <i class="fas fa-download"></i> Download PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Right sidebar with tools -->
@@ -431,24 +557,24 @@
                             <i class="fas fa-user-graduate"></i>
                             <span>Teacher Mode</span>
                         </div>
+                        <!-- Prompt Library option in sidebar (moved from Coming Soon) -->
+                        <div id="prompt-library" class="tool-item" title="Prompt Library">
+                            <i class="fas fa-book"></i>
+                            <span>Prompt Library</span>
+                        </div>
+                        <!-- Previous Year Paper Generator option in sidebar (moved from Coming Soon) -->
+                        <div id="paper-generator" class="tool-item" title="Mock Question Paper Generator">
+                            <i class="fas fa-file-alt"></i>
+                            <span>Mock Question Paper</span>
+                        </div>
                     </div>
                     
                     <!-- Coming soon tools section -->
                     <div class="tools-section">
                         <h4 class="tools-section-title">Coming Soon</h4>
-                        <div id="practice-paper-generator" class="tool-item coming-soon" title="Practice Paper Generator - Coming Soon">
-                            <i class="fas fa-file-alt"></i>
-                            <span>Practice Paper Generator</span>
-                            <span class="coming-soon-badge">Soon</span>
-                        </div>
                         <div id="notes-generator" class="tool-item coming-soon" title="Detailed Notes Generator - Coming Soon">
                             <i class="fas fa-pen-fancy"></i>
                             <span>Detailed Notes Generator</span>
-                            <span class="coming-soon-badge">Soon</span>
-                        </div>
-                        <div id="prompt-library" class="tool-item coming-soon" title="Prompt Library - Coming Soon">
-                            <i class="fas fa-book"></i>
-                            <span>Prompt Library</span>
                             <span class="coming-soon-badge">Soon</span>
                         </div>
                         <div id="image-ocr" class="tool-item coming-soon" title="Image OCR Tool - Coming Soon">

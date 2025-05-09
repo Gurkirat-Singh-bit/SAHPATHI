@@ -660,3 +660,53 @@ def generate_quiz_from_syllabus():
         logger.error(f"Unexpected error in generate_quiz_from_syllabus: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": f"Server error: {str(e)}"}), 500
+
+@routes.route('/api/generate-question-paper', methods=['POST'])
+def generate_question_paper():
+    """Generate a question paper based on syllabus without PDF conversion"""
+    try:
+        data = request.json
+        if not data or 'syllabus' not in data:
+            return jsonify({'error': 'No syllabus provided'}), 400
+        
+        syllabus = data.get('syllabus', '')
+        question_count = data.get('questionCount', 10)
+        difficulty_level = data.get('difficultyLevel', 'medium')
+        session_id = data.get('sessionId', '')
+        
+        # Create the prompt for the AI
+        prompt = f"""Generate a previous year question paper with exactly {question_count} questions based on the following syllabus:
+
+{syllabus}
+
+Each question should be numbered and have a clear answer. Difficulty level: {difficulty_level}. Just provide the questions and answers without any introduction or conclusion."""
+        
+        # Generate response from Gemini
+        ai_response = generate_response(prompt)
+        
+        # Create the paper header
+        paper_header = f"""# Practice Paper - {difficulty_level.capitalize()} Level
+
+## Syllabus Coverage
+{syllabus}
+
+## Instructions
+- Time: 3 hours
+- Maximum Marks: {question_count * 5}
+- All questions are compulsory
+
+"""
+        
+        # Combine header and AI-generated questions
+        complete_content = paper_header + ai_response
+        
+        # Return the complete paper content
+        return jsonify({
+            'success': True,
+            'paperContent': complete_content
+        })
+        
+    except Exception as e:
+        error_details = traceback.format_exc()
+        logger.error(f"Question paper generation error: {str(e)}\n{error_details}")
+        return jsonify({'error': str(e)}), 500

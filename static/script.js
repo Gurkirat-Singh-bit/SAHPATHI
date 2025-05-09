@@ -936,7 +936,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const ampm = hours >= 12 ? 'PM' : 'AM';
         
         hours = hours % 12;
-        hours = hours ? hours : 12;
+        hours = hours ? hours : 12; // If hours is 0, set to 12
         minutes = minutes < 10 ? '0' + minutes : minutes;
         
         return `${hours}:${minutes} ${ampm}`;
@@ -3125,4 +3125,657 @@ window.addEventListener('load', function() {
             return false;
         };
     }
+});
+
+// Prompt Library functionality
+const promptLibraryBtn = document.getElementById('prompt-library');
+const promptLibraryScreen = document.getElementById('prompt-library-screen');
+const closePromptLibrary = document.getElementById('close-prompt-library');
+const defaultPromptsTab = document.getElementById('default-prompts-tab');
+const myPromptsTab = document.getElementById('my-prompts-tab');
+const defaultPromptsContent = document.getElementById('default-prompts-content');
+const myPromptsContent = document.getElementById('my-prompts-content');
+const customPromptsContainer = document.getElementById('custom-prompts-container');
+const emptyPromptsMessage = document.getElementById('empty-prompts-message');
+const promptTitle = document.getElementById('prompt-title');
+const promptText = document.getElementById('prompt-text');
+const savePromptBtn = document.getElementById('save-prompt-btn');
+
+// Previous Year Paper Generator functionality
+const paperGeneratorBtn = document.getElementById('paper-generator');
+const paperGeneratorScreen = document.getElementById('paper-generator-screen');
+const closePaperGenerator = document.getElementById('close-paper-generator');
+const syllabusContent = document.getElementById('syllabus-content');
+const generatePaperBtn = document.getElementById('generate-paper-btn');
+const paperLoading = document.getElementById('paper-loading');
+const paperResult = document.getElementById('paper-result');
+const downloadPaperBtn = document.getElementById('download-paper-btn');
+
+// Default prompts list
+const defaultPrompts = [
+    {
+        title: "Study Plan Creator",
+        text: "Create a detailed study plan for me on the topic of [SUBJECT]. Include daily goals, resources to use, and milestones to track progress. The plan should span over [TIME PERIOD] days/weeks."
+    },
+    {
+        title: "Concept Explainer",
+        text: "Explain the concept of [CONCEPT] in simple terms first, then provide increasingly detailed explanations. Include real-world examples and applications."
+    },
+    {
+        title: "Problem Solver",
+        text: "I'm struggling with this problem: [PROBLEM DESCRIPTION]. Please help me understand how to solve it step by step and explain the reasoning behind each step."
+    },
+    {
+        title: "Exam Preparation",
+        text: "I have an exam on [SUBJECT] in [TIME PERIOD]. Help me create a comprehensive review strategy, focusing on key concepts, common question types, and effective study techniques."
+    },
+    {
+        title: "Note Summarizer",
+        text: "Summarize the following notes on [SUBJECT] into a concise, organized format with bullet points highlighting the key concepts: [PASTE NOTES HERE]"
+    }
+];
+
+// Initialize Prompt Library
+function initPromptLibrary() {
+    // Load default prompts
+    renderDefaultPrompts();
+    
+    // Load custom prompts from localStorage
+    loadCustomPrompts();
+    
+    // Add event listeners
+    if (promptLibraryBtn) {
+        promptLibraryBtn.addEventListener('click', showPromptLibrary);
+    }
+    
+    if (closePromptLibrary) {
+        closePromptLibrary.addEventListener('click', hidePromptLibrary);
+    }
+    
+    if (defaultPromptsTab) {
+        defaultPromptsTab.addEventListener('click', () => {
+            defaultPromptsTab.classList.add('active');
+            myPromptsTab.classList.remove('active');
+            defaultPromptsContent.classList.remove('hidden');
+            myPromptsContent.classList.add('hidden');
+        });
+    }
+    
+    if (myPromptsTab) {
+        myPromptsTab.addEventListener('click', () => {
+            myPromptsTab.classList.add('active');
+            defaultPromptsTab.classList.remove('active');
+            myPromptsContent.classList.remove('hidden');
+            defaultPromptsContent.classList.add('hidden');
+        });
+    }
+    
+    if (savePromptBtn) {
+        savePromptBtn.addEventListener('click', saveCustomPrompt);
+    }
+}
+
+// Initialize Paper Generator
+function initPaperGenerator() {
+    if (paperGeneratorBtn) {
+        paperGeneratorBtn.addEventListener('click', showPaperGenerator);
+    }
+    
+    if (closePaperGenerator) {
+        closePaperGenerator.addEventListener('click', hidePaperGenerator);
+    }
+    
+    if (generatePaperBtn) {
+        generatePaperBtn.addEventListener('click', generatePaper);
+    }
+    
+    if (downloadPaperBtn) {
+        downloadPaperBtn.addEventListener('click', downloadPaper);
+    }
+}
+
+// Show Prompt Library
+function showPromptLibrary() {
+    if (promptLibraryScreen) {
+        // Hide chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'none';
+        }
+        
+        // Show prompt library screen
+        promptLibraryScreen.classList.remove('hidden');
+        promptLibraryScreen.classList.add('visible');
+        
+        // Set active tool
+        setActiveTool(promptLibraryBtn);
+    }
+}
+
+// Hide Prompt Library
+function hidePromptLibrary() {
+    if (promptLibraryScreen) {
+        promptLibraryScreen.classList.remove('visible');
+        promptLibraryScreen.classList.add('hidden');
+        
+        // Show chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'flex';
+        }
+    }
+}
+
+// Render default prompts
+function renderDefaultPrompts() {
+    const promptCardsContainer = document.querySelector('#default-prompts-content .prompt-cards');
+    if (!promptCardsContainer) return;
+    
+    promptCardsContainer.innerHTML = '';
+    
+    defaultPrompts.forEach(prompt => {
+        const card = createPromptCard(prompt.title, prompt.text, false);
+        promptCardsContainer.appendChild(card);
+    });
+}
+
+// Load custom prompts from localStorage
+function loadCustomPrompts() {
+    if (!customPromptsContainer || !emptyPromptsMessage) return;
+    
+    // Get custom prompts from localStorage
+    const customPrompts = getCustomPrompts();
+    
+    // Clear container
+    customPromptsContainer.innerHTML = '';
+    
+    // Show empty message if no custom prompts
+    if (customPrompts.length === 0) {
+        emptyPromptsMessage.classList.remove('hidden');
+    } else {
+        emptyPromptsMessage.classList.add('hidden');
+        
+        // Render custom prompts
+        customPrompts.forEach(prompt => {
+            const card = createPromptCard(prompt.title, prompt.text, true);
+            customPromptsContainer.appendChild(card);
+        });
+    }
+}
+
+// Create a prompt card element
+function createPromptCard(title, text, isCustom) {
+    const card = document.createElement('div');
+    card.className = 'prompt-card';
+    
+    let actionsHtml = '';
+    if (isCustom) {
+        actionsHtml = `
+            <div class="prompt-card-actions">
+                <button class="prompt-card-action" data-action="edit" title="Edit prompt">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="prompt-card-action" data-action="delete" title="Delete prompt">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+    }
+    
+    card.innerHTML = `
+        <div class="prompt-card-header">
+            <h3 class="prompt-card-title">${title}</h3>
+            ${actionsHtml}
+        </div>
+        <p class="prompt-card-text">${text}</p>
+        <div class="prompt-card-footer">
+            <div class="prompt-actions">
+                <button class="copy-prompt-btn" title="Copy to clipboard">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+            <button class="use-prompt-btn">Use Prompt</button>
+        </div>
+    `;
+    
+    // Add event listener for using the prompt
+    const useBtn = card.querySelector('.use-prompt-btn');
+    if (useBtn) {
+        useBtn.addEventListener('click', () => {
+            usePrompt(text);
+        });
+    }
+    
+    // Add event listener for copying the prompt to clipboard
+    const copyBtn = card.querySelector('.copy-prompt-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            copyPromptToClipboard(text);
+        });
+    }
+    
+    // Add event listeners for custom prompt actions
+    if (isCustom) {
+        const editBtn = card.querySelector('[data-action="edit"]');
+        const deleteBtn = card.querySelector('[data-action="delete"]');
+        
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                editCustomPrompt(title, text);
+            });
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteCustomPrompt(title);
+            });
+        }
+    }
+    
+    return card;
+}
+
+// Copy prompt text to clipboard
+function copyPromptToClipboard(text) {
+    // Create a temporary textarea element to copy from
+    const tempTextarea = document.createElement('textarea');
+    tempTextarea.value = text;
+    document.body.appendChild(tempTextarea);
+    
+    // Select and copy the text
+    tempTextarea.select();
+    document.execCommand('copy');
+    
+    // Remove the temporary element
+    document.body.removeChild(tempTextarea);
+    
+    // Show success message
+    showStatusMessage('success', 'Prompt copied to clipboard!');
+}
+
+// Use a prompt in the chat
+function usePrompt(promptText) {
+    // Set the prompt in the user input field
+    if (userInput) {
+        userInput.value = promptText;
+        userInput.focus();
+        
+        // Auto-adjust height if the function exists
+        if (typeof adjustInputHeight === 'function') {
+            adjustInputHeight();
+        }
+    }
+    
+    // Hide the prompt library
+    hidePromptLibrary();
+}
+
+// Save custom prompt
+function saveCustomPrompt() {
+    const title = promptTitle.value.trim();
+    const text = promptText.value.trim();
+    
+    if (!title || !text) {
+        showStatusMessage('error', 'Please provide both a title and prompt text.');
+        return;
+    }
+    
+    // Get existing prompts
+    const customPrompts = getCustomPrompts();
+    
+    // Check if we're editing an existing prompt or creating a new one
+    const existingIndex = customPrompts.findIndex(p => p.title === title);
+    
+    if (existingIndex >= 0) {
+        // Update existing prompt
+        customPrompts[existingIndex].text = text;
+        showStatusMessage('success', 'Prompt updated successfully!');
+    } else {
+        // Add new prompt
+        customPrompts.push({ title, text });
+        showStatusMessage('success', 'Prompt saved successfully!');
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('customPrompts', JSON.stringify(customPrompts));
+    
+    // Clear form
+    promptTitle.value = '';
+    promptText.value = '';
+    
+    // Refresh custom prompts display
+    loadCustomPrompts();
+}
+
+// Edit custom prompt
+function editCustomPrompt(title, text) {
+    // Fill the form with prompt data
+    promptTitle.value = title;
+    promptText.value = text;
+    
+    // Scroll to form
+    const addPromptSection = document.querySelector('.add-prompt-section');
+    if (addPromptSection) {
+        addPromptSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Focus on the text area
+    promptText.focus();
+}
+
+// Delete custom prompt
+function deleteCustomPrompt(title) {
+    if (!confirm(`Are you sure you want to delete the prompt "${title}"?`)) {
+        return;
+    }
+    
+    // Get existing prompts
+    const customPrompts = getCustomPrompts();
+    
+    // Remove the prompt with the matching title
+    const updatedPrompts = customPrompts.filter(p => p.title !== title);
+    
+    // Save to localStorage
+    localStorage.setItem('customPrompts', JSON.stringify(updatedPrompts));
+    
+    // Show success message
+    showStatusMessage('success', 'Prompt deleted successfully!');
+    
+    // Refresh custom prompts display
+    loadCustomPrompts();
+}
+
+// Get custom prompts from localStorage
+function getCustomPrompts() {
+    const promptsJson = localStorage.getItem('customPrompts');
+    return promptsJson ? JSON.parse(promptsJson) : [];
+}
+
+// Show Paper Generator
+function showPaperGenerator() {
+    if (paperGeneratorScreen) {
+        // Hide chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'none';
+        }
+        
+        // Show paper generator screen
+        paperGeneratorScreen.classList.remove('hidden');
+        paperGeneratorScreen.classList.add('visible');
+        
+        // Set active tool
+        setActiveTool(paperGeneratorBtn);
+    }
+}
+
+// Hide Paper Generator
+function hidePaperGenerator() {
+    if (paperGeneratorScreen) {
+        paperGeneratorScreen.classList.remove('visible');
+        paperGeneratorScreen.classList.add('hidden');
+        
+        // Show chat container
+        if (chatContainer) {
+            chatContainer.style.display = 'flex';
+        }
+    }
+}
+
+// Generate Paper
+async function generatePaper() {
+    const syllabus = syllabusContent.value.trim();
+    const questionCount = document.getElementById('question-count').value;
+    const difficultyLevel = document.getElementById('difficulty-level').value;
+    
+    if (!syllabus) {
+        showStatusMessage('error', 'Please enter your syllabus or course structure.');
+        return;
+    }
+    
+    // Show loading indicator
+    paperLoading.classList.remove('hidden');
+    paperResult.classList.add('hidden');
+    generatePaperBtn.disabled = true;
+    
+    try {
+        // Use the new direct API endpoint instead of going through the chat API
+        const response = await fetch('/api/generate-question-paper', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                syllabus: syllabus,
+                questionCount: questionCount,
+                difficultyLevel: difficultyLevel,
+                sessionId: currentSessionId || ''
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to generate paper');
+        }
+        
+        // Get the paper content from the response
+        const data = await response.json();
+        
+        // Display the generated paper content
+        showPaperResult(data.paperContent);
+        
+    } catch (error) {
+        console.error('Error generating paper:', error);
+        showStatusMessage('error', 'Failed to generate paper. Please try again.');
+        
+        // Hide loading
+        paperLoading.classList.add('hidden');
+    } finally {
+        // Re-enable button
+        generatePaperBtn.disabled = false;
+    }
+}
+
+// Show the generated paper result directly in the UI
+function showPaperResult(content) {
+    if (!paperResult) return;
+    
+    // Clear previous result
+    paperResult.innerHTML = '';
+    
+    // Create paper content section
+    const paperContent = document.createElement('div');
+    paperContent.className = 'paper-content';
+    
+    // Format the content - convert markdown to HTML
+    let formattedContent = content
+        .replace(/^# (.*)/gm, '<h1>$1</h1>')
+        .replace(/^## (.*)/gm, '<h2>$1</h2>')
+        .replace(/^- (.*)/gm, '<li>$1</li>')
+        .replace(/\n\n/g, '<br><br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Wrap lists in ul tags
+    formattedContent = formattedContent.replace(/<li>(.*?)<\/li>/g, function(match) {
+        return '<ul>' + match + '</ul>';
+    }).replace(/<\/ul><ul>/g, '');
+    
+    paperContent.innerHTML = formattedContent;
+    
+    // Create action button for copying only
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'paper-actions';
+    actionButtons.innerHTML = `
+        <button id="copy-paper-btn" class="primary-button">
+            <i class="fas fa-copy"></i> Copy to Clipboard
+        </button>
+    `;
+    
+    // Append elements
+    paperResult.appendChild(paperContent);
+    paperResult.appendChild(actionButtons);
+    
+    // Show result section
+    paperLoading.classList.add('hidden');
+    paperResult.classList.remove('hidden');
+    
+    // Add event listener to copy button
+    const copyPaperBtn = document.getElementById('copy-paper-btn');
+    if (copyPaperBtn) {
+        copyPaperBtn.addEventListener('click', () => copyPaperToClipboard(content));
+    }
+}
+
+// Copy paper content to clipboard
+function copyPaperToClipboard(content) {
+    // Create a temporary textarea element to copy from
+    const tempTextarea = document.createElement('textarea');
+    tempTextarea.value = content;
+    document.body.appendChild(tempTextarea);
+    
+    // Select and copy the text
+    tempTextarea.select();
+    document.execCommand('copy');
+    
+    // Remove the temporary element
+    document.body.removeChild(tempTextarea);
+    
+    // Show success message
+    showStatusMessage('success', 'Paper content copied to clipboard!');
+}
+
+// Download Paper
+function downloadPaper() {
+    if (window.generatedPaperUrl) {
+        // Create a download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = window.generatedPaperUrl;
+        
+        // Set the filename
+        const difficultyLevel = document.getElementById('difficulty-level').value;
+        const date = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+        downloadLink.download = `Practice_Paper_${difficultyLevel}_${date}.pdf`;
+        
+        // Trigger download
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    } else {
+        showStatusMessage('error', 'No paper available to download. Please generate a paper first.');
+    }
+}
+
+// Initialize at script load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize new features
+    initPromptLibrary();
+    initPaperGenerator();
+});
+
+// Direct fix for Prompt Library and Mock Question Paper Generator buttons
+window.addEventListener('load', function() {
+    console.log("Applying direct fix for Prompt Library and Mock Question Paper Generator");
+    
+    // Fix Prompt Library button
+    const promptLibraryBtn = document.getElementById('prompt-library');
+    const promptLibraryScreen = document.getElementById('prompt-library-screen');
+    const closePromptLibrary = document.getElementById('close-prompt-library');
+    
+    // Fix Mock Question Paper Generator button
+    const paperGeneratorBtn = document.getElementById('paper-generator');
+    const paperGeneratorScreen = document.getElementById('paper-generator-screen');
+    const closePaperGenerator = document.getElementById('close-paper-generator');
+    
+    const chatContainer = document.getElementById('chat-container');
+    
+    if (promptLibraryBtn && promptLibraryScreen) {
+        // Remove any existing event listeners by cloning and replacing the element
+        const newPromptLibraryBtn = promptLibraryBtn.cloneNode(true);
+        promptLibraryBtn.parentNode.replaceChild(newPromptLibraryBtn, promptLibraryBtn);
+        
+        // Add direct onclick handler with highest priority
+        newPromptLibraryBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Prompt Library being shown (direct handler)");
+            
+            // Hide chat container
+            if (chatContainer) chatContainer.style.display = 'none';
+            
+            // Show prompt library screen
+            promptLibraryScreen.style.display = 'block';
+            promptLibraryScreen.classList.remove('hidden');
+            promptLibraryScreen.classList.add('visible');
+            
+            return false;
+        };
+    }
+    
+    if (closePromptLibrary) {
+        // Remove any existing event listeners by cloning and replacing the element
+        const newClosePromptLibrary = closePromptLibrary.cloneNode(true);
+        closePromptLibrary.parentNode.replaceChild(newClosePromptLibrary, closePromptLibrary);
+        
+        // Add direct onclick handler
+        newClosePromptLibrary.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Prompt Library being hidden (direct handler)");
+            
+            // Hide prompt library screen
+            promptLibraryScreen.classList.remove('visible');
+            promptLibraryScreen.classList.add('hidden');
+            
+            // Show chat container
+            if (chatContainer) chatContainer.style.display = 'flex';
+            
+            return false;
+        };
+    }
+    
+    if (paperGeneratorBtn && paperGeneratorScreen) {
+        // Remove any existing event listeners by cloning and replacing the element
+        const newPaperGeneratorBtn = paperGeneratorBtn.cloneNode(true);
+        paperGeneratorBtn.parentNode.replaceChild(newPaperGeneratorBtn, paperGeneratorBtn);
+        
+        // Add direct onclick handler with highest priority
+        newPaperGeneratorBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Mock Question Paper Generator being shown (direct handler)");
+            
+            // Hide chat container
+            if (chatContainer) chatContainer.style.display = 'none';
+            
+            // Show paper generator screen
+            paperGeneratorScreen.style.display = 'block';
+            paperGeneratorScreen.classList.remove('hidden');
+            paperGeneratorScreen.classList.add('visible');
+            
+            return false;
+        };
+    }
+    
+    if (closePaperGenerator) {
+        // Remove any existing event listeners by cloning and replacing the element
+        const newClosePaperGenerator = closePaperGenerator.cloneNode(true);
+        closePaperGenerator.parentNode.replaceChild(newClosePaperGenerator, closePaperGenerator);
+        
+        // Add direct onclick handler
+        newClosePaperGenerator.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("Mock Question Paper Generator being hidden (direct handler)");
+            
+            // Hide paper generator screen
+            paperGeneratorScreen.classList.remove('visible');
+            paperGeneratorScreen.classList.add('hidden');
+            
+            // Show chat container
+            if (chatContainer) chatContainer.style.display = 'flex';
+            
+            return false;
+        };
+    }
+    
+    console.log("Direct fixes for Prompt Library and Mock Question Paper Generator applied");
 });
