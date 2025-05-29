@@ -82,7 +82,7 @@ sahpaathi/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This Project is Licensed under CC BY-NC 4.0.
 
 ## Acknowledgments
 
